@@ -1,0 +1,154 @@
+version_info: 0,
+resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: web_listener
+    address:
+      socket_address:
+        address: "0.0.0.0"
+        port_value: 80
+    filter_chains:
+      - filters:
+          - name: envoy.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              codec_type: auto
+              stat_prefix: ingress_http
+              access_log:
+                - name: envoy.file_access_log
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+                    path: "/dev/stdout"
+              route_config:
+                name: local_route
+                virtual_hosts:
+                  - name: web_backend
+                    domains:
+                      - web
+                      - web.app
+                    routes:
+                      - match:
+                          prefix: "/"
+                        route:
+                          cluster: web
+                  - name: echo-api_backend
+                    domains:
+                      - echo-api
+                      - echo-api.app
+                      - echoapi
+                      - echoapi.app
+                    routes:
+                      - match:
+                          prefix: "/"
+                        route:
+                          cluster: echo-api
+              http_filters:
+                - name: envoy.filters.http.wasm
+                  typed_config:
+                    #"@type": type.googleapis.com/udpa.type.v1.TypedStruct
+                    "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                    config:
+                      name: 3scale-auth
+                      root_id: "a_root_id"
+                      vm_config:
+                        vm_id: "1"
+                        runtime: envoy.wasm.runtime.v8
+                        configuration:
+                          "@type": type.googleapis.com/google.protobuf.StringValue
+                          value: "vm configuration here!"
+                        code:
+                          local:
+                            filename: "/etc/proxy-wasm/threescale_wasm_auth.wasm"
+                        allow_precompiled: false
+                      configuration:
+                        #"@type": type.googleapis.com/udpa.type.v1.TypedStruct
+                        "@type": type.googleapis.com/google.protobuf.StringValue
+                        value: |
+                          {
+                            "system": {
+                              "cluster_name": "a_cluster",
+                              "url": "https://a-system-url",
+                              "token": "a system token",
+                              "timeout": 5
+                            },
+                            "backend": {
+                              "cluster_name": "3scale-saas-backend",
+                              "url": "https://su1.3scale.net",
+                              "timeout": 5
+                            },
+                            "services": [
+                              {
+                                "id": "web_svc_id",
+                                "token": "web_svc_token",
+                                "authorities": [
+                                  "web",
+                                  "web.app"
+                                ],
+                                "credentials": [
+                                  {
+                                    "kind": "user_key",
+                                    "key": "x-api-key",
+                                    "locations": [
+                                      "header",
+                                      "query_string"
+                                    ]
+                                  }
+                                ],
+                                "mapping_rules": [
+                                  {
+                                    "method": "get",
+                                    "pattern": "/",
+                                    "usages": [
+                                      {
+                                        "name": "hits",
+                                        "delta": 1
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "method": "get",
+                                    "pattern": "/ticks",
+                                    "usages": [
+                                      {
+                                        "name": "ticks",
+                                        "delta": 1
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "echo_svc_id",
+                                "token": "echo_svc_token",
+                                "authorities": [
+                                  "echo-api",
+                                  "echo-api.app",
+                                  "echoapi",
+                                  "echoapi.app"
+                                ],
+                                "credentials": [
+                                  {
+                                    "kind": "user_key",
+                                    "key": "x-api-key",
+                                    "locations": [
+                                      "header",
+                                      "query_string"
+                                    ]
+                                  }
+                                ],
+                                "mapping_rules": [
+                                  {
+                                    "method": "get",
+                                    "pattern": "/",
+                                    "usages": [
+                                      {
+                                        "name": "hits",
+                                        "delta": 1
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                      fail_open: false
+                - name: envoy.filters.http.router

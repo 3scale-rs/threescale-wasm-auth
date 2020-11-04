@@ -1,2 +1,4 @@
-/target
+/target/
 /tarpaulin_report.html
+/compose/wasm/
+/secrets
