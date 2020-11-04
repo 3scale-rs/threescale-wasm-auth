@@ -1,0 +1,72 @@
+apiVersion: maistra.io/v1alpha1
+kind: ServiceMeshExtension
+metadata:
+  name: threescale-auth
+spec:
+  image: quay.io/3scale/threescale-wasm-auth:debug
+  phase: PreAuthZ
+  priority: 100
+  workloadSelector:
+    labels:
+      app: productpage
+  config: |
+    {
+      "system": {
+        "upstream": {
+          "name": "outbound|443||multitenant.3scale.net",
+          "url": "https://istiodevel-admin.3scale.net",
+          "timeout": 5000
+        },
+        "token": "invalid-token"
+      },
+      "backend": {
+        "upstream": {
+          "name": "outbound|443||su1.3scale.net",
+          "url": "https://su1.3scale.net",
+          "timeout": 5000
+        }
+      },
+      "services": [
+        {
+          "id": "2555417834780",
+          "token": "invalid-token",
+          "authorities": [
+            "web",
+            "web.app",
+            "istio-ingressgateway-istio-system.apps-crc.testing"
+          ],
+          "credentials": [
+            {
+              "kind": "user_key",
+              "key": "x-api-key",
+              "locations": [
+                "header",
+                "query_string"
+              ]
+            }
+          ],
+          "mapping_rules": [
+            {
+              "method": "get",
+              "pattern": "/",
+              "usages": [
+                {
+                  "name": "hits",
+                  "delta": 1
+                }
+              ]
+            },
+            {
+              "method": "get",
+              "pattern": "/productpage",
+              "usages": [
+                {
+                  "name": "ticks",
+                  "delta": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
