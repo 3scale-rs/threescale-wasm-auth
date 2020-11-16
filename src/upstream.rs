@@ -3,6 +3,7 @@ use core::convert::{Into, TryFrom};
 use core::iter::Extend;
 use core::time::Duration;
 
+mod endpoint;
 mod serde;
 
 const DEFAULT_TIMEOUT_MS: u64 = 1000u64;
@@ -41,7 +42,7 @@ impl Upstream {
         &self,
         ctx: &C,
         path: impl ToString,
-        method: &str,
+        method: impl AsRef<str>,
         headers: Vec<(&str, &str)>,
         body: Option<&[u8]>,
         trailers: Option<Vec<(&str, &str)>>,

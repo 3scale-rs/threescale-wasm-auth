@@ -4,6 +4,7 @@ use proxy_wasm::types::*;
 
 mod authrep;
 mod configuration;
+mod system;
 mod upstream;
 mod url;
 
