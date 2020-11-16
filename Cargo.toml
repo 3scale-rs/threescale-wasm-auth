@@ -15,6 +15,7 @@ threescalers = { version = "^0.7", default-features = false }
 anyhow = "^1"
 thiserror = "^1"
 url = { git = "https://github.com/3scale-rs/rust-url", branch = "3scale", features = ["serde"] }
+straitjacket = { git = "https://github.com/3scale-rs/straitjacket", branch = "master" }
 
 [lib]
 crate-type = ["cdylib"]
