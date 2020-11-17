@@ -656,9 +656,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "proxy-wasm-3scale"
+name = "proxy-wasm"
 version = "0.1.0"
-source = "git+https://github.com/3scale/proxy-wasm-rust-sdk#5cd83fce425890559eb7a46517b2fdb539e8a182"
+source = "git+https://github.com/3scale/proxy-wasm-rust-sdk?branch=3scale#871921acbdb45f985aec9dc7b5bad56f35039ae2"
 dependencies = [
  "hashbrown",
  "log",
@@ -992,7 +992,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
- "proxy-wasm-3scale",
+ "proxy-wasm",
  "serde",
  "serde_json",
  "straitjacket",

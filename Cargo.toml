@@ -5,7 +5,7 @@ authors = ["Alejandro Martinez Ruiz <alex@flawedcode.org>"]
 edition = "2018"
 
 [dependencies]
-proxy-wasm = { git = "https://github.com/3scale/proxy-wasm-rust-sdk", branch = "master", package = "proxy-wasm-3scale" }
+proxy-wasm = { git = "https://github.com/3scale/proxy-wasm-rust-sdk", branch = "3scale" }
 log = "^0.4"
 wasm-bindgen = "^0.2"
 wasm-bindgen-macro = "^0.2"
