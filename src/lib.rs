@@ -4,10 +4,10 @@ use proxy_wasm::types::*;
 
 mod authrep;
 mod configuration;
+mod upstream;
 mod url;
-use configuration::Configuration;
 
-pub(crate) use crate::url::Url;
+use configuration::Configuration;
 
 struct HttpAuthThreescale {
     context_id: u32,
@@ -24,15 +24,6 @@ impl HttpContext for HttpAuthThreescale {
             }
             Ok(backend) => backend,
         };
-        let backend_url = backend.url();
-        let backend_authority = match crate::url::authority(backend_url) {
-            // authority is required when serializing, so this should not happen
-            None => {
-                error!("no authority found in configured 3scale backend - ensure it is a well formed URL including the scheme");
-                return FilterHeadersStatus::Continue;
-            }
-            Some(authority) => authority,
-        };
 
         let request = match authrep::authrep_request(self) {
             Err(e) => {
@@ -44,37 +35,30 @@ impl HttpContext for HttpAuthThreescale {
         };
 
         // uri will actually just get the whole path + parameters
-        let (mut uri, body) = request.uri_and_body();
+        let (uri, body) = request.uri_and_body();
 
-        let backend_path = backend_url.path();
-        // add in any path included in the backend URL
-        // Note: this currently does not take into account any query parameters, but I've yet to see someone using those
-        //       for proper support we'd likely want to have the client crate handle those
-        if backend_path.len() > 1 {
-            uri.to_mut().insert_str(0, backend_path);
-        }
-
-        let metadata = vec![
-            (":method", request.method.as_str()),
-            (":path", uri.as_ref()),
-            (":authority", backend_authority.as_str()),
-        ];
         let headers = request
             .headers
             .iter()
             .map(|(key, value)| (key.as_str(), value.as_str()))
-            .chain(metadata.into_iter())
             .collect::<Vec<_>>();
 
-        let call_token = self
-            .dispatch_http_call(
-                backend.cluster_name(),
-                headers,
-                body.map(str::as_bytes),
-                vec![],
-                backend.timeout(),
-            )
-            .unwrap();
+        let upstream = backend.upstream();
+        let call_token = match upstream.call(
+            self,
+            uri.as_ref(),
+            request.method.as_str(),
+            headers,
+            body.map(str::as_bytes),
+            None,
+            None,
+        ) {
+            Ok(call_token) => call_token,
+            Err(e) => {
+                error!("on_http_request_headers: could not dispatch HTTP call to {}: did you create the cluster to do so? - {:#?}", upstream.name(), e);
+                return FilterHeadersStatus::StopIteration;
+            }
+        };
 
         info!("on_http_request_headers: call token is {}", call_token);
 

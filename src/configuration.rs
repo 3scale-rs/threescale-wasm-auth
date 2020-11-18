@@ -1,8 +1,8 @@
 // XXX TODO avoid warnings for now on unused fns, since this is in progress
 #![allow(dead_code)]
 
+use crate::upstream::Upstream;
 use core::convert::TryFrom;
-use core::time::Duration;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -19,28 +19,17 @@ pub(crate) enum MissingError {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct System {
     name: Option<String>,
-    cluster_name: String,
-    #[serde(deserialize_with = "crate::url::deserialize")]
-    url: crate::Url,
-    timeout: f64,
+    upstream: Upstream,
     token: String,
 }
 
 impl System {
-    pub fn cluster_name(&self) -> &str {
-        self.cluster_name.as_str()
-    }
-
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    pub fn url(&self) -> &crate::Url {
-        &self.url
-    }
-
-    pub fn timeout(&self) -> Duration {
-        Duration::from_secs_f64(self.timeout)
+    pub fn upstream(&self) -> &Upstream {
+        &self.upstream
     }
 
     pub fn token(&self) -> &str {
@@ -50,23 +39,18 @@ impl System {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Backend {
-    cluster_name: String,
-    #[serde(deserialize_with = "crate::url::deserialize")]
-    url: crate::Url,
-    timeout: f64,
+    name: Option<String>,
+    upstream: Upstream,
     extensions: Option<Vec<String>>,
 }
 
 impl Backend {
-    pub fn cluster_name(&self) -> &str {
-        self.cluster_name.as_str()
-    }
-    pub fn url(&self) -> &crate::Url {
-        &self.url
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
-    pub fn timeout(&self) -> Duration {
-        Duration::from_secs_f64(self.timeout)
+    pub fn upstream(&self) -> &Upstream {
+        &self.upstream
     }
 
     pub fn extensions(&self) -> Option<&Vec<String>> {
