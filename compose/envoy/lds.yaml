@@ -65,15 +65,19 @@ resources:
                         value: |
                           {
                             "system": {
-                              "cluster_name": "a_cluster",
-                              "url": "https://a-system-url",
-                              "token": "a system token",
-                              "timeout": 5
+                              "upstream": {
+                                "name": "a_cluster",
+                                "url": "https://a-system-url",
+                                "timeout": 5000
+                              },
+                              "token": "a system token"
                             },
                             "backend": {
-                              "cluster_name": "3scale-saas-backend",
-                              "url": "https://su1.3scale.net",
-                              "timeout": 5
+                              "upstream": {
+                                "name": "3scale-saas-backend",
+                                "url": "https://su1.3scale.net",
+                                "timeout": 5000
+                              }
                             },
                             "services": [
                               {
