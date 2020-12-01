@@ -6,7 +6,7 @@ use threescalers::{
     api_call::{ApiCall, Kind},
     application::Application,
     credentials::Credentials,
-    extensions,
+    //extensions,
     http::Request,
     service::Service,
     transaction::Transaction,
@@ -115,11 +115,11 @@ pub(crate) fn authrep_request(ctx: &HttpAuthThreescale) -> Result<Request, anyho
 
     let mut usages = std::collections::HashMap::new();
     for rule in svc.mapping_rules() {
-        debug!("matching rule {:#?}", rule);
+        debug!("considering rule {:#?}", rule);
         if method == rule.method().to_ascii_uppercase().as_str()
             && rule.match_pattern(path.as_str())
         {
-            debug!("matched pattern in {}", path.as_str());
+            debug!("matched pattern {} in {}", rule.pattern(), path.as_str());
             for usage in rule.usages() {
                 let value = usages.entry(usage.name()).or_insert(0);
                 *value += usage.delta();
@@ -134,14 +134,15 @@ pub(crate) fn authrep_request(ctx: &HttpAuthThreescale) -> Result<Request, anyho
     let usage = Usage::new(usage.as_slice());
     let txn = Transaction::new(&app, None, Some(&usage), None);
     let txns = vec![txn];
-    let extensions = extensions::List::new().no_body();
+    // XXX temporarily disabled to check service responses
+    //let extensions = extensions::List::new().no_body();
 
     let service = Service::new(svc.id(), Credentials::ServiceToken(svc.token().into()));
     let mut apicall = ApiCall::builder(&service);
     // the builder here can only fail if we fail to set a kind
     let apicall = apicall
         .transactions(&txns)
-        .extensions(&extensions)
+        //.extensions(&extensions)
         .kind(Kind::AuthRep)
         .build()
         .unwrap();

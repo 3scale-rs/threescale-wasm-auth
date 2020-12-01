@@ -30,17 +30,6 @@ resources:
                           prefix: "/"
                         route:
                           cluster: web
-                  - name: echo-api_backend
-                    domains:
-                      - echo-api
-                      - echo-api.app
-                      - echoapi
-                      - echoapi.app
-                    routes:
-                      - match:
-                          prefix: "/"
-                        route:
-                          cluster: echo-api
               http_filters:
                 - name: envoy.filters.http.wasm
                   typed_config:
@@ -66,23 +55,23 @@ resources:
                           {
                             "system": {
                               "upstream": {
-                                "name": "a_cluster",
-                                "url": "https://a-system-url",
+                                "name": "outbound|443||multitenant.3scale.net",
+                                "url": "https://istiodevel-admin.3scale.net",
                                 "timeout": 5000
                               },
-                              "token": "a system token"
+                              "token": "invalid-token"
                             },
                             "backend": {
                               "upstream": {
-                                "name": "3scale-saas-backend",
+                                "name": "outbound|443||su1.3scale.net",
                                 "url": "https://su1.3scale.net",
                                 "timeout": 5000
                               }
                             },
                             "services": [
                               {
-                                "id": "web_svc_id",
-                                "token": "web_svc_token",
+                                "id": "2555417834780",
+                                "token": "invalid-token",
                                 "authorities": [
                                   "web",
                                   "web.app"
@@ -110,42 +99,10 @@ resources:
                                   },
                                   {
                                     "method": "get",
-                                    "pattern": "/ticks",
+                                    "pattern": "/productpage",
                                     "usages": [
                                       {
                                         "name": "ticks",
-                                        "delta": 1
-                                      }
-                                    ]
-                                  }
-                                ]
-                              },
-                              {
-                                "id": "echo_svc_id",
-                                "token": "echo_svc_token",
-                                "authorities": [
-                                  "echo-api",
-                                  "echo-api.app",
-                                  "echoapi",
-                                  "echoapi.app"
-                                ],
-                                "credentials": [
-                                  {
-                                    "kind": "user_key",
-                                    "key": "x-api-key",
-                                    "locations": [
-                                      "header",
-                                      "query_string"
-                                    ]
-                                  }
-                                ],
-                                "mapping_rules": [
-                                  {
-                                    "method": "get",
-                                    "pattern": "/",
-                                    "usages": [
-                                      {
-                                        "name": "hits",
                                         "delta": 1
                                       }
                                     ]
