@@ -102,12 +102,6 @@ curl-web.app: export USER_KEY?=$(WEB_KEY)
 curl-web.app: ## Perform a curl call to web.app (make sure to export secrets)
 	$(MAKE) curl
 
-.PHONY: curl-echo-api.app
-curl-echo-api.app: export HOST?=echo-api.app
-curl-echo-api.app: export USER_KEY?=$(ECHO_API_KEY)
-curl-echo-api.app: ## Perform a curl call to echo-api.app (make sure to export secrets)
-	$(MAKE) curl
-
 # Check http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 .PHONY: help
 help: ## Print this help
