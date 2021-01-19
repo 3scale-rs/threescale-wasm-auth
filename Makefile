@@ -15,10 +15,12 @@ build: ## Build WASM filter
 	fi
 	mkdir -p $(PROJECT_PATH)/compose/wasm
 	ln -sf ../../target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
+	ln -f $(PROJECT_PATH)/target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/servicemesh/
 
 clean: ## Clean WASM filter
 	cargo clean
 	rm -f $(PROJECT_PATH)/compose/wasm/threescale_wasm_auth.wasm
+	rm -f $(PROJECT_PATH)/servicemesh/threescale_wasm_auth.wasm
 
 .PHONY: doc
 doc: ## Open project documentation
