@@ -15,10 +15,9 @@ To run the demo:
 4. Create a `secrets` file with the following contents:
 ```shell
 export WEB_KEY=<a user_key for the service handling the web.app backend>
-export ECHO_API_KEY=<a user_key for the service handling the echo-api.app backend>
 ```
 5. Run `source secrets`.
-6. Run `make curl-web.app` or `make curl-echo-api.app`.
+6. Run `make curl-web.app`.
 6.1 Optionally specify a path to hit a specific pattern rule: `make SVC_PATH=products/1/sales curl-web.app` (N.B. no initial slash!)
 
 If you set up limits, those should be respected by this plug-in, and reporting

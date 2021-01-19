@@ -6,13 +6,19 @@ OPEN_APP ?= xdg-open
 
 .PHONY: build
 build: export TARGET?=wasm32-unknown-unknown
-build: ## Build wasm filter
-	cargo build --target=$(TARGET)
+build: export BUILD?=debug
+build: ## Build WASM filter
+	if test "x$(BUILD)" = "xrelease"; then \
+	  cargo build --target=$(TARGET) --release $(CARGO_EXTRA_ARGS) ; \
+	else \
+	  cargo build --target=$(TARGET) $(CARGO_EXTRA_ARGS) ; \
+	fi
 	mkdir -p $(PROJECT_PATH)/compose/wasm
-	ln -sf ../../target/$(TARGET)/debug/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
+	ln -sf ../../target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
 
-clean:
+clean: ## Clean WASM filter
 	cargo clean
+	rm -f $(PROJECT_PATH)/compose/wasm/threescale_wasm_auth.wasm
 
 .PHONY: doc
 doc: ## Open project documentation
@@ -93,19 +99,13 @@ curl: export INDEX?=1
 curl: export PORT?=80
 curl: export HOST?=web.app
 curl: export USER_KEY?=invalid-key
-curl: ## Perform a request to a specific service (default ingress:80 with Host: web.app)
-	curl -vvv -H "Host: $(HOST)" -H "X-API-Key: $(USER_KEY)" "$(SCHEME)://$$($(DOCKER_COMPOSE) port --index $(INDEX) $(SERVICE) $(PORT))/$(SVC_PATH)"
+curl: export TARGET?=$$($(DOCKER_COMPOSE) port --index $(INDEX) $(SERVICE) $(PORT))
+curl: ## Perform a request to a specific service (default ingress:80 with Host: web.app, please set USER_KEY)
+	curl -vvv -H "Host: $(HOST)" -H "X-API-Key: $(USER_KEY)" "$(SCHEME)://$(TARGET)/$(SVC_PATH)"
 
 .PHONY: curl-web.app
-curl-web.app: export HOST?=web.app
 curl-web.app: export USER_KEY?=$(WEB_KEY)
 curl-web.app: ## Perform a curl call to web.app (make sure to export secrets)
-	$(MAKE) curl
-
-.PHONY: curl-echo-api.app
-curl-echo-api.app: export HOST?=echo-api.app
-curl-echo-api.app: export USER_KEY?=$(ECHO_API_KEY)
-curl-echo-api.app: ## Perform a curl call to echo-api.app (make sure to export secrets)
 	$(MAKE) curl
 
 # Check http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html

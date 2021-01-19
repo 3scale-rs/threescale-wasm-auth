@@ -1,7 +1,7 @@
 version: "2.2"
 services:
   ingress:
-    image: istio/proxyv2:1.8.0-alpha.2
+    image: istio/proxyv2:1.8.2
     entrypoint: /bin/bash -c 'sleep 1 && /usr/local/bin/envoy -c /etc/envoy/envoy.yaml --bootstrap-version 3 --service-cluster $$(domainname) --service-node $$(hostname) --log-level debug'
     volumes:
       - ${ENVOY_DIR:-./envoy}:/etc/envoy/:z,rw
@@ -21,30 +21,13 @@ services:
     networks:
       - ingress
       - mesh
-
-  echo-api:
-    image: quay.io/3scale/echoapi:stable
-    expose:
-      - "9292"
-    ports:
-      - "9292"
-    scale: 2
-    domainname: "app"
-    networks:
-      ingress:
-      mesh:
-        aliases:
-          - echo-api.app
-          - echoapi
-          - echoapi.app
-
   web:
     image: katacoda/docker-http-server
     expose:
       - "80"
     ports:
       - "80"
-    scale: 4
+    scale: 1
     domainname: "app"
     networks:
       mesh:
