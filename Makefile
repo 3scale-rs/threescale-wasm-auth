@@ -93,11 +93,11 @@ curl: export INDEX?=1
 curl: export PORT?=80
 curl: export HOST?=web.app
 curl: export USER_KEY?=invalid-key
-curl: ## Perform a request to a specific service (default ingress:80 with Host: web.app)
-	curl -vvv -H "Host: $(HOST)" -H "X-API-Key: $(USER_KEY)" "$(SCHEME)://$$($(DOCKER_COMPOSE) port --index $(INDEX) $(SERVICE) $(PORT))/$(SVC_PATH)"
+curl: export TARGET?=$$($(DOCKER_COMPOSE) port --index $(INDEX) $(SERVICE) $(PORT))
+curl: ## Perform a request to a specific service (default ingress:80 with Host: web.app, please set USER_KEY)
+	curl -vvv -H "Host: $(HOST)" -H "X-API-Key: $(USER_KEY)" "$(SCHEME)://$(TARGET)/$(SVC_PATH)"
 
 .PHONY: curl-web.app
-curl-web.app: export HOST?=web.app
 curl-web.app: export USER_KEY?=$(WEB_KEY)
 curl-web.app: ## Perform a curl call to web.app (make sure to export secrets)
 	$(MAKE) curl
