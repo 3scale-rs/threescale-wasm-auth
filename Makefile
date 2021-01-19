@@ -6,13 +6,19 @@ OPEN_APP ?= xdg-open
 
 .PHONY: build
 build: export TARGET?=wasm32-unknown-unknown
-build: ## Build wasm filter
-	cargo build --target=$(TARGET)
+build: export BUILD?=debug
+build: ## Build WASM filter
+	if test "x$(BUILD)" = "xrelease"; then \
+	  cargo build --target=$(TARGET) --release $(CARGO_EXTRA_ARGS) ; \
+	else \
+	  cargo build --target=$(TARGET) $(CARGO_EXTRA_ARGS) ; \
+	fi
 	mkdir -p $(PROJECT_PATH)/compose/wasm
-	ln -sf ../../target/$(TARGET)/debug/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
+	ln -sf ../../target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
 
-clean:
+clean: ## Clean WASM filter
 	cargo clean
+	rm -f $(PROJECT_PATH)/compose/wasm/threescale_wasm_auth.wasm
 
 .PHONY: doc
 doc: ## Open project documentation
