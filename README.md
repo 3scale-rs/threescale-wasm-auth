@@ -17,11 +17,20 @@ To run the demo:
 export WEB_KEY=<a user_key for the service handling the web.app backend>
 ```
 5. Run `source secrets`.
-6. Run `make curl-web.app`.
-6.1 Optionally specify a path to hit a specific pattern rule: `make SVC_PATH=products/1/sales curl-web.app` (N.B. no initial slash!)
+6. Run `make curl-compose`.
+6.1 Optionally specify a path to hit a specific pattern rule: `make SVC_PATH=productpage curl-compose` (N.B. no initial slash!)
+    This specific path is used as well for Istio/SM configurations, and is set up in 3scale to have a 5 hits/minute rate limiting,
+    so it is useful to test the integration with 3scale.
 
-If you set up limits, those should be respected by this plug-in, and reporting
-should be happening and visible in your 3scale dashboard.
+If you set up other limits, those should be respected by this plug-in, and reporting should be happening and visible in your 3scale dashboard.
+
+### Istio/Service Mesh
+
+Run `make help` to learn about a few targets useful for these environments.
+
+You will also find useful contents under the `servicemesh` directory.
+
+If you want to test this module with the Bookinfo sample application there are targets to ease debugging by automatically deploying CRDs or streaming logs.
 
 ### Known issues
 

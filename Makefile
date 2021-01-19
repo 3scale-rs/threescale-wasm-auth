@@ -4,6 +4,21 @@ COMPOSEFILE := $(PROJECT_PATH)/compose/docker-compose.yaml
 DOCKER_COMPOSE := docker-compose -f $(COMPOSEFILE)
 OPEN_APP ?= xdg-open
 
+.PHONY: build-extension
+build-extension: export IMAGE_VERSION?=latest
+build-extension: build ## Build WASM filter and docker image
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh build
+
+.PHONY: clean-extension
+clean-extension: export IMAGE_VERSION?=latest
+clean-extension: clean ## Clean WASM filter and docker image
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh clean
+
+.PHONY: push-extension
+push-extension: export IMAGE_VERSION?=latest
+push-extension: ## Push WASM filter docker image
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh push
+
 .PHONY: build
 build: export TARGET?=wasm32-unknown-unknown
 build: export BUILD?=debug
@@ -15,14 +30,47 @@ build: ## Build WASM filter
 	fi
 	mkdir -p $(PROJECT_PATH)/compose/wasm
 	ln -sf ../../target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
+	ln -f $(PROJECT_PATH)/target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/servicemesh/
 
 clean: ## Clean WASM filter
 	cargo clean
 	rm -f $(PROJECT_PATH)/compose/wasm/threescale_wasm_auth.wasm
+	rm -f $(PROJECT_PATH)/servicemesh/threescale_wasm_auth.wasm
 
 .PHONY: doc
 doc: ## Open project documentation
 	cargo doc --open
+
+.PHONY: istio-loglevel
+istio-loglevel: ## Set Istio proxy log level (use LOG_LEVEL)
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh istio-loglevel
+
+.PHONY: istio-logs
+istio-logs: ## Stream Istio proxy logs
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh istio-logs
+
+.PHONY: istio-deploy
+istio-deploy: build ## Deploy extension to Istio
+	@echo >&2 "************************************************************"
+	@echo >&2 " You need to copy the WASM file to the cluster and mount it"
+	@echo >&2 "  Check EnvoyFilter and annotations in the pod deployment"
+	@echo >&2 "************************************************************"
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh istio-apply
+
+.PHONY: istio-clean
+istio-clean: ## Remove extension from Istio
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh istio-clean
+
+.PHONY: ossm-deploy
+ossm-deploy: build-extension ## Deploy extension to Openshift Service Mesh
+	@echo >&2 "***************************************************************"
+	@echo >&2 " You need to push the WASM container to an accessible registry"
+	@echo >&2 "***************************************************************"
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh istio-apply
+
+.PHONY: ossm-clean
+ossm-clean: ## Remove extension from Openshift Service Mesh
+	$(MAKE) -C $(PROJECT_PATH)/servicemesh istio-clean
 
 .PHONY: up
 up: ## Start docker-compose containers
@@ -105,8 +153,25 @@ curl: ## Perform a request to a specific service (default ingress:80 with Host: 
 
 .PHONY: curl-web.app
 curl-web.app: export USER_KEY?=$(WEB_KEY)
-curl-web.app: ## Perform a curl call to web.app (make sure to export secrets)
+curl-web.app: ## Perform a curl call to web.app (make sure to export secrets, ie. source ./env)
 	$(MAKE) curl
+
+.PHONY: curl-compose
+curl-compose: curl-web.app ## Perform a curl call to the docker-compose cluster
+
+.PHONY: curl-istio
+curl-istio: export KUBECTL?=kubectl
+curl-istio: export ISTIO_NS?=istio-system
+curl-istio: export ISTIO_INGRESS?=istio-ingressgateway
+curl-istio: export SVC_PATH?=productpage
+curl-istio: export TARGET?=$(shell $(KUBECTL) -n $(ISTIO_NS) get service $(ISTIO_INGRESS) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'):$(shell $(KUBECTL) -n $(ISTIO_NS) get service $(ISTIO_INGRESS) -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+curl-istio: ## Perform a curl call to your Istio Ingress
+	$(MAKE) curl-web.app
+
+.PHONY: curl-ossm
+curl-ossm: export KUBECTL?=oc
+curl-ossm: ## Perform a curl call to your Openshift Service Mesh or Maistra Ingress
+	$(MAKE) curl-istio
 
 # Check http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 .PHONY: help

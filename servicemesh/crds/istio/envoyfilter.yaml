@@ -1,0 +1,98 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: productpage-v1-threescale-auth
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.http_connection_manager
+            subFilter:
+              name: envoy.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.wasm
+        typedConfig:
+          '@type': type.googleapis.com/udpa.type.v1.TypedStruct
+          typeUrl: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+          value:
+            config:
+              configuration:
+                '@type': type.googleapis.com/google.protobuf.StringValue
+                value: |
+                  {
+                    "system": {
+                      "upstream": {
+                        "name": "outbound|443||multitenant.3scale.net",
+                        "url": "https://istiodevel-admin.3scale.net",
+                        "timeout": 5000
+                      },
+                      "token": "invalid-token"
+                    },
+                    "backend": {
+                      "upstream": {
+                        "name": "outbound|443||su1.3scale.net",
+                        "url": "https://su1.3scale.net",
+                        "timeout": 5000
+                      }
+                    },
+                    "services": [
+                      {
+                        "id": "2555417834780",
+                        "token": "invalid-token",
+                        "authorities": [
+                          "web",
+                          "web.app"
+                        ],
+                        "credentials": [
+                          {
+                            "kind": "user_key",
+                            "key": "x-api-key",
+                            "locations": [
+                              "header",
+                              "query_string"
+                            ]
+                          }
+                        ],
+                        "mapping_rules": [
+                          {
+                            "method": "get",
+                            "pattern": "/",
+                            "usages": [
+                              {
+                                "name": "hits",
+                                "delta": 1
+                              }
+                            ]
+                          },
+                          {
+                            "method": "get",
+                            "pattern": "/productpage",
+                            "usages": [
+                              {
+                                "name": "ticks",
+                                "delta": 1
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+              name: threescale-auth
+              rootId: root_id
+              vmConfig:
+                code:
+                  local:
+                    filename: /var/local/lib/wasme-cache/e1d69b422bac3f0fd0dcd5fa1032e975ff6874e7a1deafc40aeddd8dae957380
+                runtime: envoy.wasm.runtime.v8
+                vmId: threescale-auth
+  workloadSelector:
+    labels:
+      app: productpage
+      version: v1
