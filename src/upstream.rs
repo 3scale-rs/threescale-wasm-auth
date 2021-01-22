@@ -37,6 +37,7 @@ impl Upstream {
         self.base_path.as_deref()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn call<C: proxy_wasm::traits::Context>(
         &self,
         ctx: &C,
@@ -55,7 +56,7 @@ impl Upstream {
 
         let mut hdrs = vec![
             (":authority", self.authority.as_str()),
-            (":method", method.as_ref()),
+            (":method", method),
             (":path", path.as_str()),
         ];
 
@@ -108,8 +109,8 @@ impl TryFrom<url::Url> for UpstreamBuilder {
     type Error = anyhow::Error;
 
     fn try_from(url: url::Url) -> Result<Self, Self::Error> {
-        let authority =
-            crate::url::authority(&url).ok_or(anyhow!("url does not contain an authority"))?;
+        let authority = crate::url::authority(&url)
+            .ok_or_else(|| anyhow!("url does not contain an authority"))?;
         Ok(UpstreamBuilder { url, authority })
     }
 }
