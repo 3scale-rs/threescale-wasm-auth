@@ -10,6 +10,7 @@ const DEFAULT_TIMEOUT_MS: u64 = 1000u64;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Upstream {
     name: String,
+    scheme: String,
     authority: String,
     base_path: Option<String>,
     // timeout in ms
@@ -29,6 +30,10 @@ impl Upstream {
         self.name.as_str()
     }
 
+    pub fn scheme(&self) -> &str {
+        self.scheme.as_str()
+    }
+
     pub fn authority(&self) -> &str {
         self.authority.as_str()
     }
@@ -37,6 +42,7 @@ impl Upstream {
         self.base_path.as_deref()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn call<C: proxy_wasm::traits::Context>(
         &self,
         ctx: &C,
@@ -54,14 +60,22 @@ impl Upstream {
         }
 
         let mut hdrs = vec![
-            (":authority", self.authority.as_str()),
-            (":method", method.as_ref()),
+            (":authority", self.authority()),
+            (":scheme", self.scheme()),
+            (":method", method),
             (":path", path.as_str()),
         ];
 
         hdrs.extend(headers);
 
         let trailers = trailers.unwrap_or_default();
+        log::debug!(
+            "calling out {} (using {} scheme) with headers -> {:?} <- and body -> {:?} <-",
+            self.name(),
+            self.scheme(),
+            hdrs,
+            body
+        );
         ctx.dispatch_http_call(
             self.name.as_str(),
             hdrs,
@@ -73,7 +87,8 @@ impl Upstream {
         )
         .map_err(|e| {
             anyhow!(
-                "failed to dispatch HTTP call to cluster {} with authority {}: {:?}",
+                "failed to dispatch HTTP ({}) call to cluster {} with authority {}: {:?}",
+                self.scheme,
                 self.name,
                 self.authority,
                 e
@@ -90,6 +105,7 @@ pub struct UpstreamBuilder {
 impl UpstreamBuilder {
     pub fn build(self, name: impl ToString, timeout: Option<u64>) -> Upstream {
         let name = name.to_string();
+        let scheme = self.url.scheme().to_string();
         let base_path = match self.url.path() {
             "/" => None,
             path => path.to_string().into(),
@@ -97,6 +113,7 @@ impl UpstreamBuilder {
 
         Upstream {
             name,
+            scheme,
             authority: self.authority,
             base_path,
             timeout: Duration::from_millis(timeout.unwrap_or(DEFAULT_TIMEOUT_MS)),
@@ -108,8 +125,8 @@ impl TryFrom<url::Url> for UpstreamBuilder {
     type Error = anyhow::Error;
 
     fn try_from(url: url::Url) -> Result<Self, Self::Error> {
-        let authority =
-            crate::url::authority(&url).ok_or(anyhow!("url does not contain an authority"))?;
+        let authority = crate::url::authority(&url)
+            .ok_or_else(|| anyhow!("url does not contain an authority"))?;
         Ok(UpstreamBuilder { url, authority })
     }
 }
