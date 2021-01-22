@@ -198,10 +198,26 @@ impl RootContext for RootAuthThreescale {
     }
 }
 
-#[no_mangle]
-pub fn _start() {
+#[cfg_attr(
+    all(
+        target_arch = "wasm32",
+        target_vendor = "unknown",
+        target_os = "unknown"
+    ),
+    export_name = "_start"
+)]
+// This is a C interface, so make it explicit in the fn signature (and avoid mangling)
+extern "C" fn start() {
     proxy_wasm::set_log_level(LogLevel::Trace);
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> {
         Box::new(RootAuthThreescale::new())
     });
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn it_works() {
+        assert!(true);
+    }
 }
