@@ -10,6 +10,7 @@ const DEFAULT_TIMEOUT_MS: u64 = 1000u64;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Upstream {
     name: String,
+    scheme: String,
     authority: String,
     base_path: Option<String>,
     // timeout in ms
@@ -27,6 +28,10 @@ impl Upstream {
 
     pub fn name(&self) -> &str {
         self.name.as_str()
+    }
+
+    pub fn scheme(&self) -> &str {
+        self.scheme.as_str()
     }
 
     pub fn authority(&self) -> &str {
@@ -55,7 +60,8 @@ impl Upstream {
         }
 
         let mut hdrs = vec![
-            (":authority", self.authority.as_str()),
+            (":authority", self.authority()),
+            (":scheme", self.scheme()),
             (":method", method),
             (":path", path.as_str()),
         ];
@@ -63,6 +69,13 @@ impl Upstream {
         hdrs.extend(headers);
 
         let trailers = trailers.unwrap_or_default();
+        log::debug!(
+            "calling out {} (using {} scheme) with headers -> {:?} <- and body -> {:?} <-",
+            self.name(),
+            self.scheme(),
+            hdrs,
+            body
+        );
         ctx.dispatch_http_call(
             self.name.as_str(),
             hdrs,
@@ -74,7 +87,8 @@ impl Upstream {
         )
         .map_err(|e| {
             anyhow!(
-                "failed to dispatch HTTP call to cluster {} with authority {}: {:?}",
+                "failed to dispatch HTTP ({}) call to cluster {} with authority {}: {:?}",
+                self.scheme,
                 self.name,
                 self.authority,
                 e
@@ -91,6 +105,7 @@ pub struct UpstreamBuilder {
 impl UpstreamBuilder {
     pub fn build(self, name: impl ToString, timeout: Option<u64>) -> Upstream {
         let name = name.to_string();
+        let scheme = self.url.scheme().to_string();
         let base_path = match self.url.path() {
             "/" => None,
             path => path.to_string().into(),
@@ -98,6 +113,7 @@ impl UpstreamBuilder {
 
         Upstream {
             name,
+            scheme,
             authority: self.authority,
             base_path,
             timeout: Duration::from_millis(timeout.unwrap_or(DEFAULT_TIMEOUT_MS)),
