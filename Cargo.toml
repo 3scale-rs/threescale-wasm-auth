@@ -15,4 +15,5 @@ thiserror = "^1"
 url = { git = "https://github.com/3scale-rs/rust-url", branch = "3scale", features = ["serde"] }
 
 [lib]
-crate-type = ["cdylib"]
+# rlib included to be able to use #[test] without compiler and linker issues
+crate-type = ["cdylib", "rlib"]
