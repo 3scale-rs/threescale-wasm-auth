@@ -1,5 +1,6 @@
-use super::configuration::{ApplicationKind, Location};
 use super::HttpAuthThreescale;
+use crate::configuration::{ApplicationKind, Location};
+use log::debug;
 use proxy_wasm::traits::HttpContext;
 use thiserror::Error;
 use threescalers::{
@@ -44,7 +45,7 @@ struct MatchData {
 }
 
 impl MatchData {
-    pub fn get<C: super::HttpContext>(ctx: &C) -> Self {
+    pub fn get<C: proxy_wasm::traits::HttpContext>(ctx: &C) -> Self {
         Self {
             authority: ctx.get_http_request_header(":authority"),
             path: ctx.get_http_request_header(":path"),
@@ -77,9 +78,7 @@ impl MatchData {
 }
 
 pub(crate) fn authrep_request(ctx: &HttpAuthThreescale) -> Result<Request, anyhow::Error> {
-    use log::debug;
-
-    let svclist = ctx.configuration.get_services()?;
+    let svclist = ctx.configuration().get_services()?;
 
     let (authority, method, path) = MatchData::get(ctx).matches()?;
 

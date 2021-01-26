@@ -214,3 +214,87 @@ impl Configuration {
         self.services().ok_or(MissingError::Services)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    mod fixtures {
+        pub const CONFIG: &str = r#"{
+            "system": {
+              "upstream": {
+                "name": "outbound|443||multitenant.3scale.net",
+                "url": "https://istiodevel-admin.3scale.net",
+                "timeout": 5000
+              },
+              "token": "invalid-token"
+            },
+            "backend": {
+              "upstream": {
+                "name": "outbound|443||su1.3scale.net",
+                "url": "https://su1.3scale.net",
+                "timeout": 5000
+              }
+            },
+            "services": [
+              {
+                "id": "2555417834780",
+                "token": "invalid-token",
+                "authorities": [
+                  "web",
+                  "web.app"
+                ],
+                "credentials": [
+                  {
+                    "kind": "user_key",
+                    "key": "x-api-key",
+                    "locations": [
+                      "header",
+                      "query_string"
+                    ]
+                  }
+                ],
+                "mapping_rules": [
+                  {
+                    "method": "get",
+                    "pattern": "/",
+                    "usages": [
+                      {
+                        "name": "hits",
+                        "delta": 1
+                      }
+                    ]
+                  },
+                  {
+                    "method": "get",
+                    "pattern": "/productpage",
+                    "usages": [
+                      {
+                        "name": "ticks",
+                        "delta": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+        }"#;
+    }
+
+    fn parse_config(input: &str) -> Configuration {
+        let parsed = serde_json::from_str::<'_, Configuration>(input);
+        match parsed {
+            Err(ref e) => eprintln!("Error: {:#?}", e),
+            _ => (),
+        }
+        assert!(parsed.is_ok());
+        let parsed = parsed.unwrap();
+        eprintln!("PARSED:\n{:#?}", parsed);
+        parsed
+    }
+
+    #[test]
+    fn it_parses_a_configuration_string() {
+        parse_config(fixtures::CONFIG);
+    }
+}
