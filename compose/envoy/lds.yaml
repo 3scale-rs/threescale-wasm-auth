@@ -35,13 +35,13 @@ resources:
                   config:
                     providers:
                       oidc_provider:
-                        issuer: http://keycloak/auth/realms/test
+                        issuer: http://keycloak/auth/realms/wasmauth
                         audiences:
                           - admin-cli
                         forward: true
                         remote_jwks:
                           http_uri:
-                            uri: http://keycloak/auth/realms/test/protocol/openid-connect/certs
+                            uri: http://keycloak/auth/realms/wasmauth/protocol/openid-connect/certs
                             cluster: keycloak
                             timeout: 5s
                           cache_duration:
