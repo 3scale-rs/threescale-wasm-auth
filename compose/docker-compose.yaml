@@ -22,7 +22,7 @@ services:
       - ingress
       - mesh
   web:
-    image: katacoda/docker-http-server
+    image: docker.io/kennethreitz/httpbin
     expose:
       - "80"
     ports:
