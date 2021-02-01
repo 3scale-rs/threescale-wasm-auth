@@ -113,6 +113,15 @@ proxy: LOCALURL=$(shell $(DOCKER_COMPOSE) port --index $(INDEX) $(SERVICE) $(POR
 proxy: ## Open service and port in a browser (same as proxy-info, but optionally define SCHEME and OPEN_APP)
 	$(OPEN_APP) $(SCHEME)://$(LOCALURL)
 
+.PHONY: sso
+sso: export SERVICE=keycloak
+sso: export PORT?=8080
+sso: ## Open Keycloak SSO IDP
+	$(MAKE) proxy
+
+.PHONY: keycloak
+keycloak: sso
+
 .PHONY: ingress-helper
 ingress-helper: export SERVICE?=ingress
 ingress-helper: export PORT?=80
