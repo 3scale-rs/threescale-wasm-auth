@@ -31,6 +31,26 @@ resources:
                         route:
                           cluster: web
               http_filters:
+                - name: envoy.filters.http.jwt_authn
+                  config:
+                    providers:
+                      oidc_provider:
+                        issuer: http://keycloak/auth/realms/test
+                        audiences:
+                          - admin-cli
+                        forward: true
+                        remote_jwks:
+                          http_uri:
+                            uri: http://keycloak/auth/realms/test/protocol/openid-connect/certs
+                            cluster: keycloak
+                            timeout: 5s
+                          cache_duration:
+                            seconds: 300
+                    rules:
+                      - match { prefix: /oidc }
+                        requires:
+                          provider_name: oidc_provider
+                    bypass_cors_preflight: true
                 - name: envoy.filters.http.wasm
                   typed_config:
                     #"@type": type.googleapis.com/udpa.type.v1.TypedStruct

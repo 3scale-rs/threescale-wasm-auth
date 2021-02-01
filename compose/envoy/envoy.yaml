@@ -23,6 +23,24 @@ static_resources:
                     socket_address:
                       address: web
                       port_value: 80
+    - name: keycloak
+      connect_timeout: 1.0s
+      type: logical_dns
+      dns_refresh_rate: 60s
+      lb_policy: round_robin
+      upstream_connection_options:
+        # configure a TCP keep-alive to detect and reconnect to the admin
+        # server in the event of a TCP socket half open connection
+        tcp_keepalive: {}
+      load_assignment:
+        cluster_name: keycloak
+        endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: keycloak
+                    port_value: 80
     - name: outbound|443||su1.3scale.net
       connect_timeout: 2.0s
       type: logical_dns
