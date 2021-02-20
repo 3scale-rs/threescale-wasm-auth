@@ -23,29 +23,91 @@ resources:
                 virtual_hosts:
                   - name: web_backend
                     domains:
-                      - web
-                      - web.app
+                      - "*"
                     routes:
                       - match:
                           prefix: "/"
                         route:
                           cluster: web
               http_filters:
+                - name: envoy.filters.http.wasm
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                    config:
+                      name: oidc-auth-request
+                      root_id: "oidc_auth_request_root_id"
+                      vm_config:
+                        vm_id: "1"
+                        runtime: envoy.wasm.runtime.v8
+                        configuration:
+                          "@type": type.googleapis.com/google.protobuf.StringValue
+                          value: "vm configuration here!"
+                        code:
+                          local:
+                            filename: "/etc/proxy-wasm/oidc_auth_request.wasm"
+                        allow_precompiled: false
+                      configuration:
+                        "@type": type.googleapis.com/google.protobuf.StringValue
+                        value: |
+                          {
+                            "oidcs": [
+                              {
+                                "id": "keycloak",
+                                "upstream": {
+                                  "name": "keycloak",
+                                  "url": "https://keycloak",
+                                  "timeout": 5000
+                                },
+                                "urls": {
+                                  "login": "https://0.0.0.0:18443/auth/realms/master/protocol/openid-connect/auth",
+                                  "token": "https://keycloak/auth/realms/master/protocol/openid-connect/token"
+                                },
+                                "clients": [
+                                  {
+                                    "id": "test",
+                                    "secret": "ac500305-4f53-4fef-953c-2e0802494c49"
+                                  }
+                                ]
+                              }
+                            ],
+                            "rules": [
+                              {
+                                "authorities": [
+                                  "web",
+                                  "web.app",
+                                  "0.0.0.0:8080",
+                                  "0.0.0.0:8443",
+                                  "0.0.0.0:9080"
+                                ],
+                                "match": [
+                                  {
+                                    "prefix": "/oidc",
+                                    "with": {
+                                      "oidc": "keycloak",
+                                      "client": "test"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                      fail_open: false
                 - name: envoy.filters.http.jwt_authn
                   config:
                     providers:
                       oidc_provider:
-                        issuer: http://keycloak/auth/realms/wasmauth
+                        issuer: https://keycloak/auth/realms/master
                         audiences:
                           - admin-cli
+                          - test
                         forward: true
                         remote_jwks:
                           http_uri:
-                            uri: http://keycloak/auth/realms/wasmauth/protocol/openid-connect/certs
+                            uri: https://keycloak/auth/realms/master/protocol/openid-connect/certs
                             cluster: keycloak
                             timeout: 5s
                           cache_duration:
-                            seconds: 300
+                            seconds: 1800
                     rules:
                       - match { prefix: /oidc }
                         requires:
@@ -53,11 +115,10 @@ resources:
                     bypass_cors_preflight: true
                 - name: envoy.filters.http.wasm
                   typed_config:
-                    #"@type": type.googleapis.com/udpa.type.v1.TypedStruct
                     "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
                     config:
                       name: 3scale-auth
-                      root_id: "a_root_id"
+                      root_id: "threescale-wasm-auth"
                       vm_config:
                         vm_id: "1"
                         runtime: envoy.wasm.runtime.v8
@@ -69,7 +130,6 @@ resources:
                             filename: "/etc/proxy-wasm/threescale_wasm_auth.wasm"
                         allow_precompiled: false
                       configuration:
-                        #"@type": type.googleapis.com/udpa.type.v1.TypedStruct
                         "@type": type.googleapis.com/google.protobuf.StringValue
                         value: |
                           {
@@ -103,6 +163,13 @@ resources:
                                     "locations": [
                                       "header",
                                       "query_string"
+                                    ]
+                                  },
+                                  {
+                                    "kind": "oidc",
+                                    "key": "azp",
+                                    "locations": [
+                                      "jwt_claims"
                                     ]
                                   }
                                 ],

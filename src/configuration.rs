@@ -1,4 +1,3 @@
-// XXX TODO avoid warnings for now on unused fns, since this is in progress
 #![allow(dead_code)]
 
 use crate::upstream::Upstream;
@@ -65,6 +64,8 @@ pub(crate) enum Location {
     QueryString,
     Body,
     Trailer,
+    #[serde(rename = "jwt_claims")]
+    JWTClaims,
     Any,
 }
 
@@ -74,6 +75,8 @@ pub(crate) enum ApplicationKind {
     UserKey,
     AppId,
     AppKey,
+    #[serde(rename = "oidc")]
+    OIDC,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -242,7 +245,8 @@ mod test {
                 "token": "invalid-token",
                 "authorities": [
                   "web",
-                  "web.app"
+                  "web.app",
+                  "0.0.0.0:8080"
                 ],
                 "credentials": [
                   {
@@ -251,6 +255,13 @@ mod test {
                     "locations": [
                       "header",
                       "query_string"
+                    ]
+                  },
+                  {
+                    "kind": "oidc",
+                    "key": "azp",
+                    "locations": [
+                      "jwt_claims"
                     ]
                   }
                 ],

@@ -1,4 +1,5 @@
 mod authrep;
+mod request_headers;
 
 use log::{error, info, warn};
 use proxy_wasm::traits::*;
@@ -28,7 +29,8 @@ impl HttpContext for HttpAuthThreescale {
             Ok(backend) => backend,
         };
 
-        let request = match authrep::authrep_request(self) {
+        let rh = request_headers::RequestHeaders::new(self);
+        let request = match authrep::authrep_request(self, &rh) {
             Err(e) => {
                 error!("error computing authrep request {:?}", e);
                 self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));

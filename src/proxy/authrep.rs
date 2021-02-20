@@ -1,3 +1,4 @@
+use super::request_headers::RequestHeaders;
 use super::HttpAuthThreescale;
 use crate::configuration::{ApplicationKind, Location};
 use log::debug;
@@ -15,16 +16,6 @@ use threescalers::{
 };
 
 #[derive(Debug, Error)]
-enum RequestMissingInfoError {
-    #[error("no authority provided with request")]
-    Authority,
-    #[error("no path provided with request")]
-    Path,
-    #[error("no method provided with request")]
-    Method,
-}
-
-#[derive(Debug, Error)]
 enum MatchError {
     #[error("no known service matched")]
     NoServiceMatched,
@@ -38,53 +29,21 @@ enum UnimplementedError {
     CredentialsKind(ApplicationKind),
 }
 
-struct MatchData {
-    authority: Option<String>,
-    path: Option<String>,
-    method: Option<String>,
-}
-
-impl MatchData {
-    pub fn get<C: proxy_wasm::traits::HttpContext>(ctx: &C) -> Self {
-        Self {
-            authority: ctx.get_http_request_header(":authority"),
-            path: ctx.get_http_request_header(":path"),
-            method: ctx.get_http_request_header(":method"),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn authority(&self) -> Option<&str> {
-        self.authority.as_deref()
-    }
-
-    #[allow(dead_code)]
-    pub fn path(&self) -> Option<&str> {
-        self.path.as_deref()
-    }
-
-    #[allow(dead_code)]
-    pub fn method(&self) -> Option<&str> {
-        self.method.as_deref()
-    }
-
-    pub fn matches(self) -> Result<(String, String, String), anyhow::Error> {
-        let authority = self.authority.ok_or(RequestMissingInfoError::Authority)?;
-        let method = self.method.ok_or(RequestMissingInfoError::Method)?;
-        let path = self.path.ok_or(RequestMissingInfoError::Path)?;
-
-        Ok((authority, method, path))
-    }
-}
-
-pub(crate) fn authrep_request(ctx: &HttpAuthThreescale) -> Result<Request, anyhow::Error> {
+pub(crate) fn authrep_request(
+    ctx: &HttpAuthThreescale,
+    rh: &RequestHeaders,
+) -> Result<Request, anyhow::Error> {
     let svclist = ctx.configuration().get_services()?;
 
-    let (authority, method, path) = MatchData::get(ctx).matches()?;
+    let metadata = rh.metadata();
+    let method = metadata.method();
+    let url = rh.url()?;
+    let authority = url.authority();
+    let path = url.path();
 
     let svc = svclist
         .iter()
-        .find(|&svc| svc.match_authority(authority.as_str()))
+        .find(|&svc| svc.match_authority(authority))
         .ok_or(MatchError::NoServiceMatched)?;
 
     let credentials = svc.credentials()?;
@@ -115,10 +74,8 @@ pub(crate) fn authrep_request(ctx: &HttpAuthThreescale) -> Result<Request, anyho
     let mut usages = std::collections::HashMap::new();
     for rule in svc.mapping_rules() {
         debug!("matching rule {:#?}", rule);
-        if method == rule.method().to_ascii_uppercase().as_str()
-            && rule.match_pattern(path.as_str())
-        {
-            debug!("matched pattern in {}", path.as_str());
+        if method == rule.method().to_ascii_uppercase().as_str() && rule.match_pattern(path) {
+            debug!("matched pattern in {}", path);
             for usage in rule.usages() {
                 let value = usages.entry(usage.name()).or_insert(0);
                 *value += usage.delta();
