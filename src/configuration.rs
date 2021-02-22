@@ -3,6 +3,7 @@
 use crate::upstream::Upstream;
 use core::convert::TryFrom;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -83,7 +84,10 @@ pub(crate) enum ApplicationKind {
 pub(crate) struct Parameter<K> {
     locations: Vec<Location>,
     kind: ApplicationKind,
-    key: K,
+    keys: Vec<K>,
+    metadata: Option<HashMap<String, serde_json::Value>>,
+    #[serde(flatten)]
+    other: HashMap<String, serde_json::Value>,
 }
 
 impl<K> Parameter<K> {
@@ -95,8 +99,12 @@ impl<K> Parameter<K> {
         self.kind
     }
 
-    pub fn key(&self) -> &K {
-        &self.key
+    pub fn keys(&self) -> &Vec<K> {
+        self.keys.as_ref()
+    }
+
+    pub fn metadata(&self) -> Option<&HashMap<String, serde_json::Value>> {
+        self.metadata.as_ref()
     }
 }
 
@@ -251,7 +259,7 @@ mod test {
                 "credentials": [
                   {
                     "kind": "user_key",
-                    "key": "x-api-key",
+                    "keys": ["x-api-key"],
                     "locations": [
                       "header",
                       "query_string"
@@ -259,7 +267,7 @@ mod test {
                   },
                   {
                     "kind": "oidc",
-                    "key": "azp",
+                    "keys": ["aud", "azp"],
                     "locations": [
                       "jwt_claims"
                     ]

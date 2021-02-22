@@ -36,7 +36,8 @@ pub(crate) fn authrep_request(
     //config: &Configuration,
     rh: &RequestHeaders,
 ) -> Result<Request, anyhow::Error> {
-    let svclist = ctx.configuration().get_services()?;
+    let config = ctx.configuration();
+    let svclist = config.get_services()?;
 
     let metadata = rh.metadata();
     let method = metadata.method();
@@ -55,43 +56,66 @@ pub(crate) fn authrep_request(
         credentials
             .iter()
             .find_map(|param| {
-                let key = param.key();
                 let kind = param.kind();
+                let keys = param.keys();
                 param
                     .locations()
                     .iter()
                     .find_map(|&location| match location {
-                        // TODO add more location impls
-                        Location::Header => rh.get(key).map(std::borrow::Cow::from),
-                        Location::QueryString => url.query_pairs().find_map(|(k, v)| {
-                            if k.as_ref() == key {
-                                Some(v)
-                            } else {
-                                None
-                            }
+                        Location::QueryString => keys.iter().find_map(|key| {
+                            url.query_pairs().find_map(|(k, v)| {
+                                if key == k.as_ref() {
+                                    Some(v)
+                                } else {
+                                    None
+                                }
+                            })
                         }),
+                        Location::Header => keys
+                            .iter()
+                            .find_map(|key| rh.get(key))
+                            .map(std::borrow::Cow::from),
                         Location::JWTClaims => {
-                            let path = vec![
-                                "metadata",
-                                "filter_metadata",
-                                "envoy.filters.http.jwt_authn",
-                                "jwt_payload",
-                                key,
-                            ];
-                            let property = ctx.get_property(path);
-                            let buffer = property
-                                .as_ref()
-                                .map(|v| String::from_utf8_lossy(v.as_slice()));
-                            //let buffer = buffer.map(|c| c.to_owned());
-                            //let b = buffer.unwrap().to_string();
-                            //Some(std::borrow::Cow::from(b))
-                            buffer
+                            // parse an explicit metadata path to look for the claims
+                            let path = param
+                                .metadata()
+                                .and_then(|metadata| {
+                                    metadata.get("path").and_then(|path| match path.as_str() {
+                                        Some(s) => Some(s.split('/').collect::<Vec<&str>>()),
+                                        None => path
+                                            .as_array()?
+                                            .iter()
+                                            .map(serde_json::Value::as_str)
+                                            .collect::<Option<_>>(),
+                                    })
+                                })
+                                .unwrap_or_else(|| {
+                                    vec![
+                                        //"metadata",
+                                        "metadata_context",
+                                        "filter_metadata",
+                                        "envoy.filters.http.jwt_authn",
+                                        "verified_jwt",
+                                    ]
+                                });
+                            debug!("JWT path is {:?}", path);
+                            keys.iter().find_map(|key| {
+                                // unfortunately the proxy-wasm API requires us to keep cloning the base path.
+                                let mut property_path = path.clone();
+                                property_path.push(key.as_str());
+                                let value = ctx.get_property(property_path).and_then(|v| {
+                                    String::from_utf8(v).map(std::borrow::Cow::from).ok()
+                                });
+                                debug!("Checking JWT Claim {:#?} => {:#?}", key, value);
+                                value
+                            })
                         }
                     })
                     .map(|value| (value, kind))
             })
             .ok_or(MatchError::CredentialsNotFound)?;
 
+    debug!("Found credentials, kind {:#?} value {:#?}", kind, value);
     let app = match kind {
         ApplicationKind::UserKey => Application::UserKey(value.to_string().into()),
         ApplicationKind::AppId | ApplicationKind::OIDC => {

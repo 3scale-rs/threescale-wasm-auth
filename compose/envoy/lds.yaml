@@ -65,7 +65,7 @@ resources:
                                 "clients": [
                                   {
                                     "id": "test",
-                                    "secret": "0f89eb44-895c-46eb-8547-702416a3d15e"
+                                    "secret": "757ef4ac-6d55-42ea-bec2-5c244f50e14b"
                                   }
                                 ]
                               }
@@ -108,6 +108,7 @@ resources:
                             timeout: 5s
                           cache_duration:
                             seconds: 1800
+                        payload_in_metadata: verified_jwt
                     rules:
                       - match { prefix: /oidc }
                         requires:
@@ -161,7 +162,7 @@ resources:
                                 "credentials": [
                                   {
                                     "kind": "user_key",
-                                    "key": "x-api-key",
+                                    "keys": ["x-api-key"],
                                     "locations": [
                                       "header",
                                       "query_string"
@@ -169,7 +170,7 @@ resources:
                                   },
                                   {
                                     "kind": "oidc",
-                                    "key": "azp",
+                                    "keys": ["aud", "azp", "iss"],
                                     "locations": [
                                       "jwt_claims"
                                     ]
