@@ -62,11 +62,11 @@ impl Backend {
 pub(crate) enum Location {
     Header,
     QueryString,
-    Body,
-    Trailer,
+    //Body,
+    //Trailer,
     #[serde(rename = "jwt_claims")]
     JWTClaims,
-    Any,
+    //Any,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]

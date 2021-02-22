@@ -65,7 +65,7 @@ resources:
                                 "clients": [
                                   {
                                     "id": "test",
-                                    "secret": "ac500305-4f53-4fef-953c-2e0802494c49"
+                                    "secret": "0f89eb44-895c-46eb-8547-702416a3d15e"
                                   }
                                 ]
                               }
@@ -154,7 +154,9 @@ resources:
                                 "token": "invalid-token",
                                 "authorities": [
                                   "web",
-                                  "web.app"
+                                  "web.app",
+                                  "0.0.0.0",
+                                  "0.0.0.0:8080"
                                 ],
                                 "credentials": [
                                   {

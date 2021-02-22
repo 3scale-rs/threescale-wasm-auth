@@ -1,8 +1,10 @@
+use std::vec;
+
 use super::request_headers::RequestHeaders;
 use super::HttpAuthThreescale;
 use crate::configuration::{ApplicationKind, Location};
 use log::debug;
-use proxy_wasm::traits::HttpContext;
+use proxy_wasm::traits::Context;
 use thiserror::Error;
 use threescalers::{
     api_call::{ApiCall, Kind},
@@ -31,6 +33,7 @@ enum UnimplementedError {
 
 pub(crate) fn authrep_request(
     ctx: &HttpAuthThreescale,
+    //config: &Configuration,
     rh: &RequestHeaders,
 ) -> Result<Request, anyhow::Error> {
     let svclist = ctx.configuration().get_services()?;
@@ -48,25 +51,52 @@ pub(crate) fn authrep_request(
 
     let credentials = svc.credentials()?;
 
-    let (value, kind) = credentials
-        .iter()
-        .find_map(|param| {
-            let key = param.key();
-            let kind = param.kind();
-            param
-                .locations()
-                .iter()
-                .find_map(|&location| match location {
-                    // TODO add more location impls
-                    Location::Header => ctx.get_http_request_header(key),
-                    _ => None,
-                })
-                .map(|value| (value, kind))
-        })
-        .ok_or(MatchError::CredentialsNotFound)?;
+    let (value, kind) =
+        credentials
+            .iter()
+            .find_map(|param| {
+                let key = param.key();
+                let kind = param.kind();
+                param
+                    .locations()
+                    .iter()
+                    .find_map(|&location| match location {
+                        // TODO add more location impls
+                        Location::Header => rh.get(key).map(std::borrow::Cow::from),
+                        Location::QueryString => url.query_pairs().find_map(|(k, v)| {
+                            if k.as_ref() == key {
+                                Some(v)
+                            } else {
+                                None
+                            }
+                        }),
+                        Location::JWTClaims => {
+                            let path = vec![
+                                "metadata",
+                                "filter_metadata",
+                                "envoy.filters.http.jwt_authn",
+                                "jwt_payload",
+                                key,
+                            ];
+                            let property = ctx.get_property(path);
+                            let buffer = property
+                                .as_ref()
+                                .map(|v| String::from_utf8_lossy(v.as_slice()));
+                            //let buffer = buffer.map(|c| c.to_owned());
+                            //let b = buffer.unwrap().to_string();
+                            //Some(std::borrow::Cow::from(b))
+                            buffer
+                        }
+                    })
+                    .map(|value| (value, kind))
+            })
+            .ok_or(MatchError::CredentialsNotFound)?;
 
     let app = match kind {
-        ApplicationKind::UserKey => Application::UserKey(value.into()),
+        ApplicationKind::UserKey => Application::UserKey(value.to_string().into()),
+        ApplicationKind::AppId | ApplicationKind::OIDC => {
+            Application::AppId(value.to_string().into(), None)
+        }
         // TODO implement handling of additional kinds
         k => anyhow::bail!(UnimplementedError::CredentialsKind(k)),
     };

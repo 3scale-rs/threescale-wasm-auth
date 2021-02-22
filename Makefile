@@ -29,7 +29,7 @@ build: ## Build WASM filter
 	  cargo build --target=$(TARGET) $(CARGO_EXTRA_ARGS) ; \
 	fi
 	mkdir -p $(PROJECT_PATH)/compose/wasm
-	ln -sf ../../target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
+	cp $(PROJECT_PATH)/target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/compose/wasm/
 	ln -f $(PROJECT_PATH)/target/$(TARGET)/$(BUILD)/threescale_wasm_auth.wasm $(PROJECT_PATH)/servicemesh/
 
 clean: ## Clean WASM filter
