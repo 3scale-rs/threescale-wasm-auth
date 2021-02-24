@@ -34,6 +34,7 @@ impl HttpContext for HttpAuthThreescale {
             Err(e) => {
                 error!("error computing authrep request {:?}", e);
                 self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));
+                info!("threescale_wasm_auth: 403 sent");
                 return FilterHeadersStatus::StopIteration;
             }
             Ok(request) => request,
@@ -65,7 +66,7 @@ impl HttpContext for HttpAuthThreescale {
             }
         };
 
-        info!("on_http_request_headers: call token is {}", call_token);
+        info!("threescale_wasm_auth: on_http_request_headers: call token is {}", call_token);
 
         FilterHeadersStatus::StopIteration
     }
@@ -78,7 +79,7 @@ impl HttpContext for HttpAuthThreescale {
 
 impl Context for HttpAuthThreescale {
     fn on_http_call_response(&mut self, call_token: u32, _: usize, _: usize, _: usize) {
-        info!("on_http_call_response: call_token is {}", call_token);
+        info!("threescale_wasm_auth: on_http_call_response: call_token is {}", call_token);
         let authorized = self
             .get_http_call_response_headers()
             .into_iter()
@@ -92,6 +93,7 @@ impl Context for HttpAuthThreescale {
         } else {
             info!("on_http_call_response: forbidden {}", call_token);
             self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));
+            info!("threescale_wasm_auth: 403 sent");
         }
     }
 }
@@ -193,7 +195,7 @@ impl RootContext for RootAuthThreescale {
     }
 
     fn on_create_child_context(&mut self, context_id: u32) -> Option<ChildContext> {
-        info!("creating new context {}", context_id);
+        info!("threewscale_wasm_auth: creating new context {}", context_id);
         let ctx = HttpAuthThreescale {
             context_id,
             configuration: self.configuration.as_ref().unwrap().clone(),
