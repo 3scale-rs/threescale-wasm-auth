@@ -2,7 +2,7 @@ version: "2.2"
 services:
   ingress:
     image: istio/proxyv2:1.8.3
-    entrypoint: /bin/bash -c 'sleep 1 && /usr/local/bin/envoy -c /etc/envoy/envoy.yaml --bootstrap-version 3 --service-cluster $$(domainname) --service-node $$(hostname) --log-level debug'
+    entrypoint: /bin/bash -c 'sleep 1 && /usr/local/bin/envoy -c /etc/envoy/envoy.yaml --bootstrap-version 3 --service-cluster $$(domainname) --service-node $$(hostname) --log-level trace'
     volumes:
       - ${ENVOY_DIR:-./envoy}:/etc/envoy/:z,rw
       - ${WASM_FILTER:-./wasm}:/etc/proxy-wasm/:z,rw
@@ -59,6 +59,23 @@ services:
           - sso
           - keycloak.sso
       mesh:
+
+  setup:
+    image: debian
+    volumes:
+      - ${KEYCLOAK_DIR:-./keycloak}/setup.sh:/setup.sh:z,ro
+    command: /bin/bash -c "sleep 10 && /setup.sh"
+    environment:
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+    restart: no
+    networks:
+      ingress:
+    depends_on:
+      keycloak:
+        contidion: service_started
+      ingress:
+        condition: service_started
 
 networks:
   ingress:

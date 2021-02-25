@@ -144,15 +144,20 @@ get_client_secret() {
 }
 
 main() {
-	local url="${1}"
-	local realm="${2}"
-	local user="${3:-admin}"
-	local passwd="${4:-admin}"
-	local client_id="${5}"
+	local web="${1}"
+	local url="${2}"
+	local realm="${3}"
+	local client_id="${4}"
+	local user="${5:-admin}"
+	local passwd="${6:-admin}"
 
+	if test "x${web}" = "x"; then
+		echo >&2 "No proxy URL specified, taking default http://ingress/oidc"
+		url="http://ingress/oidc"
+	fi
 	if test "x${url}" = "x"; then
-		echo >&2 "No Keycloak URL specified, taking default http://0.0.0.0:18080"
-		url="http://0.0.0.0:18080"
+		echo >&2 "No Keycloak URL specified, taking default https://keycloak:18443"
+		url="http://keycloak:18443"
 	fi
 	if test "x${realm}" = "x"; then
 		echo >&2 "No realm specified, taking default master"
@@ -213,7 +218,7 @@ main() {
 	echo "<- Got id token with expiry ${expiry}: ${id_token}"
 	sleep 5
 	echo "-> Calling proxy with id_token..."
-	curl -k -v -X GET -H "Authorization: Bearer ${id_token}" http://0.0.0.0:8080/oidc
+	curl -k -v -X GET -H "Authorization: Bearer ${id_token}" "${web}"
 }
 
 if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
