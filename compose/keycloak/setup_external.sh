@@ -156,8 +156,8 @@ main() {
 		web="http://ingress/oidc"
 	fi
 	if test "x${url}" = "x"; then
-		echo >&2 "No Keycloak URL specified, taking default https://keycloak:8443"
-		url="https://keycloak:8443"
+		echo >&2 "No Keycloak URL specified, taking default https://0.0.0.0:18443"
+		url="https://0.0.0.0:18443"
 	fi
 	if test "x${realm}" = "x"; then
 		echo >&2 "No realm specified, taking default master"

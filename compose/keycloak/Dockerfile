@@ -1,5 +1,4 @@
-FROM debian
+FROM fedora
 
-RUN export DEBIAN_FRONTEND=noninteractive \
- && apt update \
- && apt install -y curl jq
+RUN dnf upgrade -y --refresh --allowerasing --best \
+ && dnf install -y curl jq
