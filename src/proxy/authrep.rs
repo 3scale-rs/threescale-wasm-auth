@@ -91,8 +91,8 @@ pub(crate) fn authrep_request(
                                 })
                                 .unwrap_or_else(|| {
                                     vec![
-                                        //"metadata",
-                                        "metadata_context",
+                                        "metadata",
+                                        //"metadata_context",
                                         "filter_metadata",
                                         "envoy.filters.http.jwt_authn",
                                         "verified_jwt",
@@ -102,8 +102,15 @@ pub(crate) fn authrep_request(
                             keys.iter().find_map(|key| {
                                 // unfortunately the proxy-wasm API requires us to keep cloning the base path.
                                 let mut property_path = path.clone();
-                                property_path.push(key.as_str());
-                                let value = ctx.get_property(property_path).and_then(|v| {
+                                //property_path.push(key.as_str());
+                                //let value = ctx.get_property(property_path).and_then(|v| {
+                                let value_res = proxy_wasm::hostcalls::get_property(property_path).unwrap();
+                                let value = value_res.as_ref().and_then(|v| {
+                                    Some(String::from_utf8_lossy(v.as_slice()))
+                                });
+                                debug!("Checking lossy JWT Claim {:#?} => {:#?}", key, value);
+                                debug!("value_res: {:#?}", value_res);
+                                let value = value_res.and_then(|v| {
                                     String::from_utf8(v).map(std::borrow::Cow::from).ok()
                                 });
                                 debug!("Checking JWT Claim {:#?} => {:#?}", key, value);

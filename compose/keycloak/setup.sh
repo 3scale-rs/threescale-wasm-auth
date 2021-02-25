@@ -13,7 +13,7 @@ call_token_endpoint() {
 	local grant_type="${4}"
 	local payload="${5}"
 
-	curl -sSf -i -X POST \
+	curl -k -sSf -i -X POST \
 		-H "Content-Type: application/x-www-form-urlencoded" \
 		-d "grant_type=${grant_type}" \
 		-d "client_id=${client_id}" \
@@ -27,7 +27,7 @@ call_with_token() {
 	local token="${3}"
 	local payload="${4}"
 
-	curl -sSf -i -X "${method}" \
+	curl -k -sSf -i -X "${method}" \
 		-H "Authorization: Bearer ${token}" \
 		-H "Content-Type: application/json" \
 		-d "${payload}" \
@@ -40,7 +40,7 @@ call_idp() {
 	local ctype="${3}"
 	local payload="${4}"
 
-	curl -sSf -i -c ./cookies -b ./cookies -X "${method}" \
+	curl -k -sSf -i -c ./cookies -b ./cookies -X "${method}" \
 		-H "Content-Type: ${ctype}" \
 		-d "${payload}" \
 		"${url}"
@@ -54,7 +54,7 @@ get_auth_form() {
 
 	local url="${url}/auth/realms/${realm}/protocol/openid-connect/auth?client_id=${client_id}&response_type=code&scope=${scope}&redirect_uri=http%3A%2F%2F0.0.0.0%3A8080%2Foidc"
 
-	curl -sSf -i -c ./cookies -b ./cookies -X GET "${url}"
+	curl -k -sSf -i -c ./cookies -b ./cookies -X GET "${url}"
 }
 
 # returns the login form URL
@@ -208,9 +208,12 @@ main() {
 	response_no_headers=$(remove_headers "${response}")
 	echo "<- Response:"
 	echo "${response_no_headers}" | jq
-	access_token=$(echo "${response_no_headers}" | jq -r ".access_token")
+	id_token=$(echo "${response_no_headers}" | jq -r ".id_token")
 	expiry=$(echo "${response_no_headers}" | jq -r ".expires_in")
-	echo "<- Got access token with expiry ${expiry}: ${access_token}"
+	echo "<- Got id token with expiry ${expiry}: ${id_token}"
+	sleep 5
+	echo "-> Calling proxy with id_token..."
+	curl -k -v -X GET -H "Authorization: Bearer ${id_token}" http://0.0.0.0:8080/oidc
 }
 
 if [[ "${BASH_SOURCE[0]}" = "${0}" ]]; then
