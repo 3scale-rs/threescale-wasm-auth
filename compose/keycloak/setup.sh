@@ -148,12 +148,12 @@ main() {
 	local url="${2}"
 	local realm="${3}"
 	local client_id="${4}"
-	local user="${5:-${KEYCLOAK_USER}:-admin}"
-	local passwd="${6:-${KEYCLOAK_PASSWORD}:-admin}"
+	local user="${5:-${KEYCLOAK_USER:-admin}}"
+	local passwd="${6:-${KEYCLOAK_PASSWORD:-admin}}"
 
 	if test "x${web}" = "x"; then
 		echo >&2 "No proxy URL specified, taking default http://ingress/oidc"
-		url="http://ingress/oidc"
+		web="http://ingress/oidc"
 	fi
 	if test "x${url}" = "x"; then
 		echo >&2 "No Keycloak URL specified, taking default https://keycloak:18443"
