@@ -156,8 +156,8 @@ main() {
 		web="http://ingress/oidc"
 	fi
 	if test "x${url}" = "x"; then
-		echo >&2 "No Keycloak URL specified, taking default https://keycloak:18443"
-		url="http://keycloak:18443"
+		echo >&2 "No Keycloak URL specified, taking default https://keycloak:8443"
+		url="https://keycloak:8443"
 	fi
 	if test "x${realm}" = "x"; then
 		echo >&2 "No realm specified, taking default master"
@@ -169,7 +169,7 @@ main() {
 	fi
 
 	rm -f ./cookies
-	echo "-> Retrieving token for admin-cli from ${url}..."
+	echo "-> Retrieving token for admin-cli from ${url} with user ${user}:${passwd} ..."
 	admin_token=$(get_access_token_passwd "${url}" "${realm}" "admin-cli" "${user}" "${passwd}")
 	echo "<- Got admin token: ${admin_token}"
 
