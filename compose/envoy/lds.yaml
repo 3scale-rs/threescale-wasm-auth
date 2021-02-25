@@ -35,14 +35,14 @@ resources:
                     "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
                     providers:
                       oidc_provider:
-                        issuer: https://keycloak/auth/realms/master
+                        issuer: https://keycloak:8443/auth/realms/master
                         audiences:
                           - admin-cli
                           - test
                         forward: true
                         remote_jwks:
                           http_uri:
-                            uri: https://keycloak/auth/realms/master/protocol/openid-connect/certs
+                            uri: https://keycloak:8443/auth/realms/master/protocol/openid-connect/certs
                             cluster: keycloak
                             timeout: 5s
                           cache_duration:
