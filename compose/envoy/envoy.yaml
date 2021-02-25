@@ -36,7 +36,7 @@ static_resources:
                   address:
                     socket_address:
                       address: keycloak
-                      port_value: 8443
+                      port_value: 443
       transport_socket:
         name: envoy.transport_sockets.tls
         typed_config:

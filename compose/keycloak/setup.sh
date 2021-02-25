@@ -148,8 +148,8 @@ main() {
 	local url="${2}"
 	local realm="${3}"
 	local client_id="${4}"
-	local user="${5:-admin}"
-	local passwd="${6:-admin}"
+	local user="${5:-${KEYCLOAK_USER}:-admin}"
+	local passwd="${6:-${KEYCLOAK_PASSWORD}:-admin}"
 
 	if test "x${web}" = "x"; then
 		echo >&2 "No proxy URL specified, taking default http://ingress/oidc"

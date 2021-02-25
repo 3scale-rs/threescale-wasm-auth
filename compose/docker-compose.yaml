@@ -68,12 +68,12 @@ services:
     environment:
       KEYCLOAK_USER: admin
       KEYCLOAK_PASSWORD: admin
-    restart: no
+    restart: "no"
     networks:
       ingress:
     depends_on:
       keycloak:
-        contidion: service_started
+        condition: service_started
       ingress:
         condition: service_started
 

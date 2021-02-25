@@ -99,6 +99,7 @@ resources:
                                 "id": "2555417834780",
                                 "token": "invalid-token",
                                 "authorities": [
+                                  "ingress",
                                   "web",
                                   "web.app",
                                   "0.0.0.0",
