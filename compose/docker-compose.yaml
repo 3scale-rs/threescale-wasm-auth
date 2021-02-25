@@ -61,7 +61,8 @@ services:
       mesh:
 
   setup:
-    image: debian
+    build: ${KEYCLOAK_DIR:-./keycloak}
+    image: oidc-setup
     volumes:
       - ${KEYCLOAK_DIR:-./keycloak}/setup.sh:/setup.sh:z,ro
     command: /bin/bash -c "sleep 10 && /setup.sh"
