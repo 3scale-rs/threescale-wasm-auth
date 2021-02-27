@@ -58,15 +58,14 @@ impl Backend {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Location {
     Header,
     QueryString,
     //Body,
     //Trailer,
-    #[serde(rename = "jwt_claims")]
-    JWTClaims,
+    Property(Option<Vec<String>>),
     //Any,
 }
 
@@ -85,7 +84,7 @@ pub(crate) struct Parameter<K> {
     locations: Vec<Location>,
     kind: ApplicationKind,
     keys: Vec<K>,
-    metadata: Option<HashMap<String, serde_json::Value>>,
+    //metadata: Option<HashMap<String, serde_json::Value>>,
     #[serde(flatten)]
     other: HashMap<String, serde_json::Value>,
 }
@@ -103,9 +102,9 @@ impl<K> Parameter<K> {
         self.keys.as_ref()
     }
 
-    pub fn metadata(&self) -> Option<&HashMap<String, serde_json::Value>> {
-        self.metadata.as_ref()
-    }
+    //pub fn metadata(&self) -> Option<&HashMap<String, serde_json::Value>> {
+    //    self.metadata.as_ref()
+    //}
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -269,7 +268,7 @@ mod test {
                     "kind": "oidc",
                     "keys": ["aud", "azp"],
                     "locations": [
-                      "jwt_claims"
+                      "property": ["one", "two"]
                     ]
                   }
                 ],
@@ -303,7 +302,7 @@ mod test {
     fn parse_config(input: &str) -> Configuration {
         let parsed = serde_json::from_str::<'_, Configuration>(input);
         match parsed {
-            Err(ref e) => eprintln!("Error: {:#?}", e),
+            Err(ref e) => eprintln!("{}", crate::util::serde_json_error_to_string(e, input)),
             _ => (),
         }
         assert!(parsed.is_ok());

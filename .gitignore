@@ -3,3 +3,4 @@
 /compose/wasm/
 /servicemesh/threescale_wasm_auth.wasm
 /secrets
+/.vscode/

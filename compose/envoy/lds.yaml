@@ -47,12 +47,12 @@ resources:
                           cache_duration:
                             seconds: 1800
                         payload_in_metadata: verified_jwt
+                        forward_payload_header: x-jwt-payload
                     rules:
                       - match:
                           prefix: /oidc
                         requires:
-                          provider_name:
-                            oidc_provider
+                          provider_name: oidc_provider
                           #provider_and_audiences:
                           #  provider_name: oidc_provider
                           #  audiences:
@@ -117,7 +117,7 @@ resources:
                                     "kind": "oidc",
                                     "keys": ["aud", "azp", "iss"],
                                     "locations": [
-                                      "jwt_claims"
+                                      "property": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn"]
                                     ]
                                   }
                                 ],
