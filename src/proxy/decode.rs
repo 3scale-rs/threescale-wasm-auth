@@ -64,9 +64,9 @@ impl<'a> Value<'a> {
 
         let hex = bytes
             .iter()
-            .map(|c| format!("{:02x}", *c))
+            .map(|c| format!("{:#02x?}", *c))
             .collect::<Vec<_>>()
-            .join(" ");
+            .join(", ");
         log::debug!("Decoding bytes: [{}]", hex);
         let decode = decode.unwrap();
         let value = match decode {

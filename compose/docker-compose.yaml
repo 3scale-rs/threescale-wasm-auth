@@ -65,7 +65,7 @@ services:
     image: oidc-setup
     volumes:
       - ${KEYCLOAK_DIR:-./keycloak}/setup.sh:/setup.sh:z,ro
-    command: /bin/bash -c "sleep 10 && /setup.sh"
+    command: /bin/bash -c "sleep 20 && /setup.sh"
     environment:
       KEYCLOAK_USER: admin
       KEYCLOAK_PASSWORD: admin

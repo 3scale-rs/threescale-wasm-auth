@@ -241,6 +241,49 @@ mod test {
     use super::*;
 
     mod fixtures {
+        pub const JWT: &str = "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJFVGoxbzI1SlcySS1BVnM1aThHeTMxeEtFUzYzd3lKM2NnUXBmUFBoOHh3In0.eyJleHAiOjE2MTQ2Mzk2NDQsImlhdCI6MTYxNDYzOTU4NCwiYXV0aF90aW1lIjoxNjE0NjM5NTgzLCJqdGkiOiJlOWUwZjMwYy03NTRhLTQ3MmMtOTQ5Ny1iN2Y2ZGJkMzZlNGUiLCJpc3MiOiJodHRwczovL2tleWNsb2FrOjg0NDMvYXV0aC9yZWFsbXMvbWFzdGVyIiwiYXVkIjoidGVzdCIsInN1YiI6ImVmZWMzMjIwLWM3OGMtNGNmNy04ZGZiLWU5ODkyZjBlYzIzZSIsInR5cCI6IklEIiwiYXpwIjoidGVzdCIsInNlc3Npb25fc3RhdGUiOiIzMzQ3NDE1Mi1mODgyLTRjOTYtOTc2YS1kMjI0M2I3ZGZjMzEiLCJhdF9oYXNoIjoiaGlCdG1ZSkpGWmZkWXlTZEJRdkdxQSIsImFjciI6IjEiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6ImFkbWluIn0.dLOE-kXjevLfrF5c5jMx2eK_2gmSlcPHT7XFrZSHIqE7DqCjs1JBUkNwh7428WIXdtMR65YX27naXS598cLcYjgEh8kZ_944KoUkDTUVHEsIhr4426w1DOILxedTaJrneCgjTgqwvevQX929Mq03XEmgqG2YTK_gT_LDDcT1fEGcMlrPEFF1920XBHbSQDHeyxM50OYKitt3w8UO0zGN_AfEs-JTwvFUVPKIZgoSVhEkjDowuW7qexeeScp2_tbA6lmqU6GivL9J9lOJr1JeBmIJmcUWoJ4bCH3Tt9o7wPfJDD7ps5OQjEN_6tswfTsKnvzRVWwdvU09DZx5oTjg9A";
+        pub const JWT_PAYLOAD: &str = "eyJleHAiOjE2MTQ2Mzk2NDQsImlhdCI6MTYxNDYzOTU4NCwiYXV0aF90aW1lIjoxNjE0NjM5NTgzLCJqdGkiOiJlOWUwZjMwYy03NTRhLTQ3MmMtOTQ5Ny1iN2Y2ZGJkMzZlNGUiLCJpc3MiOiJodHRwczovL2tleWNsb2FrOjg0NDMvYXV0aC9yZWFsbXMvbWFzdGVyIiwiYXVkIjoidGVzdCIsInN1YiI6ImVmZWMzMjIwLWM3OGMtNGNmNy04ZGZiLWU5ODkyZjBlYzIzZSIsInR5cCI6IklEIiwiYXpwIjoidGVzdCIsInNlc3Npb25fc3RhdGUiOiIzMzQ3NDE1Mi1mODgyLTRjOTYtOTc2YS1kMjI0M2I3ZGZjMzEiLCJhdF9oYXNoIjoiaGlCdG1ZSkpGWmZkWXlTZEJRdkdxQSIsImFjciI6IjEiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6ImFkbWluIn0";
+        pub const JWT_JSON: &str = r#"{
+            "exp": 1614639644,
+            "iat": 1614639584,
+            "auth_time": 1614639583,
+            "jti": "e9e0f30c-754a-472c-9497-b7f6dbd36e4e",
+            "iss": "https://keycloak:8443/auth/realms/master",
+            "aud": "test",
+            "sub": "efec3220-c78c-4cf7-8dfb-e9892f0ec23e",
+            "typ": "ID",
+            "azp": "test",
+            "session_state": "33474152-f882-4c96-976a-d2243b7dfc31",
+            "at_hash": "hiBtmYJJFZfdYySdBQvGqA",
+            "acr": "1",
+            "email_verified": false,
+            "preferred_username": "admin"
+        }"#;
+        pub const PROTOBUF_BIN: &[u8] = &[
+            0x61, 0x74, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x0, 0x68, 0x69, 0x42, 0x74, 0x6d, 0x59,
+            0x4a, 0x4a, 0x46, 0x5a, 0x66, 0x64, 0x59, 0x79, 0x53, 0x64, 0x42, 0x51, 0x76, 0x47,
+            0x71, 0x41, 0x0, 0x65, 0x78, 0x70, 0x0, 0x0, 0x0, 0x0, 0x87, 0x5c, 0xf, 0xd8, 0x41,
+            0x0, 0x61, 0x75, 0x64, 0x0, 0x74, 0x65, 0x73, 0x74, 0x0, 0x73, 0x75, 0x62, 0x0, 0x65,
+            0x66, 0x65, 0x63, 0x33, 0x32, 0x32, 0x30, 0x2d, 0x63, 0x37, 0x38, 0x63, 0x2d, 0x34,
+            0x63, 0x66, 0x37, 0x2d, 0x38, 0x64, 0x66, 0x62, 0x2d, 0x65, 0x39, 0x38, 0x39, 0x32,
+            0x66, 0x30, 0x65, 0x63, 0x32, 0x33, 0x65, 0x0, 0x6a, 0x74, 0x69, 0x0, 0x65, 0x39, 0x65,
+            0x30, 0x66, 0x33, 0x30, 0x63, 0x2d, 0x37, 0x35, 0x34, 0x61, 0x2d, 0x34, 0x37, 0x32,
+            0x63, 0x2d, 0x39, 0x34, 0x39, 0x37, 0x2d, 0x62, 0x37, 0x66, 0x36, 0x64, 0x62, 0x64,
+            0x33, 0x36, 0x65, 0x34, 0x65, 0x0, 0x61, 0x75, 0x74, 0x68, 0x5f, 0x74, 0x69, 0x6d,
+            0x65, 0x0, 0x0, 0x0, 0xc0, 0x77, 0x5c, 0xf, 0xd8, 0x41, 0x0, 0x65, 0x6d, 0x61, 0x69,
+            0x6c, 0x5f, 0x76, 0x65, 0x72, 0x69, 0x66, 0x69, 0x65, 0x64, 0x0, 0x0, 0x0, 0x61, 0x7a,
+            0x70, 0x0, 0x74, 0x65, 0x73, 0x74, 0x0, 0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x5f,
+            0x73, 0x74, 0x61, 0x74, 0x65, 0x0, 0x33, 0x33, 0x34, 0x37, 0x34, 0x31, 0x35, 0x32,
+            0x2d, 0x66, 0x38, 0x38, 0x32, 0x2d, 0x34, 0x63, 0x39, 0x36, 0x2d, 0x39, 0x37, 0x36,
+            0x61, 0x2d, 0x64, 0x32, 0x32, 0x34, 0x33, 0x62, 0x37, 0x64, 0x66, 0x63, 0x33, 0x31,
+            0x0, 0x69, 0x73, 0x73, 0x0, 0x68, 0x74, 0x74, 0x70, 0x73, 0x3a, 0x2f, 0x2f, 0x6b, 0x65,
+            0x79, 0x63, 0x6c, 0x6f, 0x61, 0x6b, 0x3a, 0x38, 0x34, 0x34, 0x33, 0x2f, 0x61, 0x75,
+            0x74, 0x68, 0x2f, 0x72, 0x65, 0x61, 0x6c, 0x6d, 0x73, 0x2f, 0x6d, 0x61, 0x73, 0x74,
+            0x65, 0x72, 0x0, 0x69, 0x61, 0x74, 0x0, 0x0, 0x0, 0x0, 0x78, 0x5c, 0xf, 0xd8, 0x41,
+            0x0, 0x61, 0x63, 0x72, 0x0, 0x31, 0x0, 0x70, 0x72, 0x65, 0x66, 0x65, 0x72, 0x72, 0x65,
+            0x64, 0x5f, 0x75, 0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x0, 0x61, 0x64, 0x6d,
+            0x69, 0x6e, 0x0, 0x74, 0x79, 0x70, 0x0, 0x49, 0x44, 0x0,
+        ];
         pub const CONFIG: &str = r#"{
             "system": {
               "upstream": {
@@ -414,7 +457,7 @@ mod test {
 
     #[test]
     fn jwt_parse() {
-        let jwt = "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoLTJ5ZV9lVjZHZllUMTg2N0xuM01ETW96SUU0aXlJTHVkcUhuMFJDNlFRIn0.eyJleHAiOjE2MTQ2MjA5MjcsImlhdCI6MTYxNDYyMDg2NywiYXV0aF90aW1lIjoxNjE0NjIwODY2LCJqdGkiOiIzMjJkYWNlNS03NWVlLTQzMGItOWNhZC0yYWEwNGMyYjM1MjciLCJpc3MiOiJodHRwczovL2tleWNsb2FrOjg0NDMvYXV0aC9yZWFsbXMvbWFzdGVyIiwiYXVkIjoidGVzdCIsInN1YiI6ImE3MTUyYWY0LTZjYjQtNDhkYi1iMjhmLWNiNGU3YWYxMWI1OSIsInR5cCI6IklEIiwiYXpwIjoidGVzdCIsInNlc3Npb25fc3RhdGUiOiI1MWZmMDQyMy04M2QzLTQ0MjQtYjI4Ni0xNWZiOTcyMmY4NDUiLCJhdF9oYXNoIjoibkZzWHJEVG9QMmh5Qi1uU25wemRodyIsImFjciI6IjEiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6ImFkbWluIn0.bgT1Z_aVGl3_xzUDxLuwmRpI8se_fIdpQVCDO3uEEbcQndFJ-clDdb4d5sfqaEQrCC0ezOVCFNmRr0fn4fgKb_ewsK8ZFBOa-PKSgViqymAxlhPWRWHFllNJHk6tCw83Q9Y5EI99_qp-dy2Wal_vvzJ2cHwz9tjuD2169Y69NHXoUDt3ABFHnczC4hiMIrHPgqFmQbmcIyc7n36D9abCBdb9dVPBgTMVKM-NLYK-3f_uEJ1M9ZGxEyTDDDC4WGLkskTaXwPh9C0Cbz_1ZZEoFFldOQHC_uV5LsKMZAjEWm2PjAoB-OomKImXbWz16Mw5gXofwRaxET11XRLCyGNviw";
+        let jwt = "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJFVGoxbzI1SlcySS1BVnM1aThHeTMxeEtFUzYzd3lKM2NnUXBmUFBoOHh3In0.eyJleHAiOjE2MTQ2Mzk2NDQsImlhdCI6MTYxNDYzOTU4NCwiYXV0aF90aW1lIjoxNjE0NjM5NTgzLCJqdGkiOiJlOWUwZjMwYy03NTRhLTQ3MmMtOTQ5Ny1iN2Y2ZGJkMzZlNGUiLCJpc3MiOiJodHRwczovL2tleWNsb2FrOjg0NDMvYXV0aC9yZWFsbXMvbWFzdGVyIiwiYXVkIjoidGVzdCIsInN1YiI6ImVmZWMzMjIwLWM3OGMtNGNmNy04ZGZiLWU5ODkyZjBlYzIzZSIsInR5cCI6IklEIiwiYXpwIjoidGVzdCIsInNlc3Npb25fc3RhdGUiOiIzMzQ3NDE1Mi1mODgyLTRjOTYtOTc2YS1kMjI0M2I3ZGZjMzEiLCJhdF9oYXNoIjoiaGlCdG1ZSkpGWmZkWXlTZEJRdkdxQSIsImFjciI6IjEiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6ImFkbWluIn0.dLOE-kXjevLfrF5c5jMx2eK_2gmSlcPHT7XFrZSHIqE7DqCjs1JBUkNwh7428WIXdtMR65YX27naXS598cLcYjgEh8kZ_944KoUkDTUVHEsIhr4426w1DOILxedTaJrneCgjTgqwvevQX929Mq03XEmgqG2YTK_gT_LDDcT1fEGcMlrPEFF1920XBHbSQDHeyxM50OYKitt3w8UO0zGN_AfEs-JTwvFUVPKIZgoSVhEkjDowuW7qexeeScp2_tbA6lmqU6GivL9J9lOJr1JeBmIJmcUWoJ4bCH3Tt9o7wPfJDD7ps5OQjEN_6tswfTsKnvzRVWwdvU09DZx5oTjg9A";
         let jwt_parts = jwt.split('.').collect::<Vec<_>>();
         assert_eq!(jwt_parts.len(), 3);
         let jwt_first = base64::decode_config(jwt_parts[0], base64::URL_SAFE);
@@ -449,7 +492,15 @@ mod test {
                 assert!(kid.has_string_value());
                 eprintln!("kid is {}", kid.get_string_value());
             }
-            None => (),
+            None => eprintln!("kid not found"),
+        }
+        // typ should be JWT
+        match jwt_first_fields.get("typ") {
+            Some(typ) => {
+                assert!(typ.has_string_value());
+                eprintln!("typ is {}", typ.get_string_value());
+            }
+            None => eprintln!("typ not found"),
         }
         let jwt_payload = base64::decode_config(jwt_parts[1], base64::URL_SAFE);
         assert!(jwt_payload.is_ok());
@@ -468,10 +519,20 @@ mod test {
         let bytes_out = bytes_out.unwrap();
         let hex = bytes_out
             .iter()
-            .map(|c| format!("{:02x}", *c))
+            .map(|c| format!("{:#02x}", *c))
             .collect::<Vec<_>>()
-            .join(" ");
+            .join(", ");
         eprintln!("Payload PB bytes (len {}): [{}]", bytes_out.len(), hex);
+        let hex = fixtures::PROTOBUF_BIN
+            .iter()
+            .map(|c| format!("{:#02x}", *c))
+            .collect::<Vec<_>>()
+            .join(", ");
+        eprintln!(
+            "Original Payload PB bytes (len {}): [{}]",
+            fixtures::PROTOBUF_BIN.len(),
+            hex
+        );
         let jwt_payload_fields = &jwt_payload_pb.fields;
         ["iss", "sub", "jti"]
             .iter()
