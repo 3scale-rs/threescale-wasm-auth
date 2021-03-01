@@ -109,15 +109,34 @@ resources:
                                     "kind": "user_key",
                                     "keys": ["x-api-key"],
                                     "locations": [
-                                      "header",
-                                      "query_string"
+                                      {
+                                        "location": "header"
+                                      },
+                                      {
+                                        "location": "query_string"
+                                      }
                                     ]
                                   },
                                   {
                                     "kind": "oidc",
-                                    "keys": ["aud", "azp", "iss"],
+                                    "keys": ["aud", "azp"],
                                     "locations": [
-                                      "property": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn"]
+                                      {
+                                        "location": "header",
+                                        "path": ["x-jwt-payload"],
+                                        "decode": ["base64dec", "json"]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "kind": "oidc",
+                                    "keys": ["aud", "azp"],
+                                    "locations": [
+                                      {
+                                        "location": "property",
+                                        "path": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn", "verified_jwt"],
+                                        "decode": ["protobuf"]
+                                      }
                                     ]
                                   }
                                 ],

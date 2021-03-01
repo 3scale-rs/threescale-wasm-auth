@@ -173,7 +173,7 @@ main() {
 	admin_token=$(get_access_token_passwd "${url}" "${realm}" "admin-cli" "${user}" "${passwd}")
 	echo "<- Got admin token: ${admin_token}"
 
-	sleep 2
+	sleep 1
 
 	echo "-> Creating new client ${client_id} via admin token... (might fail if pre-existing)"
 	add_client "${url}" "${realm}" "${admin_token}" "${client_id}" "${client_id}" || true
@@ -186,7 +186,7 @@ main() {
 	echo "<- Got client secret: ${client_secret}"
 
 	echo "=== Setup done ==="
-	sleep 3
+	sleep 1
 
 	echo "=== Init auth flow via browser by requesting code for ${client_id} via administrative user/passwd authentication against IDP ==="
 
@@ -196,7 +196,7 @@ main() {
 	auth_form=$(get_auth_form "${url}" "${realm}" "${client_id}" "openid+profile+email")
 	login_url=$(parse_auth_form "${auth_form}")
 	echo "<- Got login URL: ${login_url}"
-	sleep 2
+	sleep 1
 	echo "-> Calling login endpoint ${login_url}"
 	login_response=$(call_idp POST "${login_url}" application/x-www-form-urlencoded "username=${user}&password=${passwd}&credentialId=")
 	location=$(get_header "${login_response}" "Location")
@@ -206,7 +206,7 @@ main() {
 
 	rm -f ./cookies
 
-	sleep 5
+	sleep 1
 
 	echo "-> Using ${client_id} client authz code along client secret to obtain an access token"
 	response=$(call_auth_token_code "${url}" "${realm}" "${client_id}" "${client_secret}" "${login_code}")
@@ -216,7 +216,7 @@ main() {
 	id_token=$(echo "${response_no_headers}" | jq -r ".id_token")
 	expiry=$(echo "${response_no_headers}" | jq -r ".expires_in")
 	echo "<- Got id token with expiry ${expiry}: ${id_token}"
-	sleep 5
+	sleep 2
 	echo "-> Calling proxy with id_token..."
 	curl -k -v -H "Authorization: Bearer ${id_token}" "${web}"
 }

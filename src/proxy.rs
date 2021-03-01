@@ -181,9 +181,14 @@ impl RootContext for RootAuthThreescale {
         let conf = match Configuration::try_from(conf.as_slice()) {
             Ok(conf) => conf,
             Err(e) => {
-                let conf_str = String::from_utf8_lossy(conf.as_slice());
-                for line in crate::util::serde_json_error_lines(&e, conf_str.as_ref(), 2, 2) {
-                    error!("{}", line);
+                if e.line() == 0 {
+                    // not a configuration syntax/data error (ie. programmatic)
+                    error!("fatal configuration error: {:#?}", e);
+                } else {
+                    let conf_str = String::from_utf8_lossy(conf.as_slice());
+                    for line in crate::util::serde_json_error_lines(&e, conf_str.as_ref(), 2, 2) {
+                        error!("{}", line);
+                    }
                 }
                 return false;
             }

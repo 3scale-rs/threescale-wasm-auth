@@ -5,6 +5,8 @@ pub fn serde_json_error_lines<'i, 'e: 'i>(
     after_ctx: usize,
 ) -> impl Iterator<Item = String> + 'i {
     let line = e.line();
+    // this is not a parsing error (ie. programmatic)
+    assert_ne!(line, 0);
     let column = e.column();
     let line_skip = line.checked_sub(before_ctx.saturating_add(1)).unwrap_or(0);
     // before_len also takes the error line

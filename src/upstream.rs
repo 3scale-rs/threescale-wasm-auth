@@ -10,10 +10,10 @@ const DEFAULT_TIMEOUT_MS: u64 = 1000u64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Upstream {
-    name: String,
-    url: Url,
+    pub name: String,
+    pub url: Url,
     // timeout in ms
-    timeout: Duration,
+    pub timeout: Duration,
 }
 
 impl Upstream {

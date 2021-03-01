@@ -7,7 +7,7 @@ pub(crate) enum Location {
     QueryString,
     //Body,
     //Trailer,
-    Property(Option<Vec<String>>),
+    Property,
     //Any,
 }
 
@@ -34,8 +34,8 @@ pub(crate) enum Format {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) struct ValueDnF {
-    decode: Option<Vec<Decode>>,
-    format: Option<Format>,
+    pub decode: Option<Vec<Decode>>,
+    pub format: Option<Format>,
 }
 
 impl ValueDnF {
@@ -51,10 +51,10 @@ impl ValueDnF {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) struct LocationInfo {
+    pub location: Location,
+    pub path: Option<Vec<String>>,
     #[serde(flatten)]
-    location: Location,
-    #[serde(flatten)]
-    value_dnf: Option<ValueDnF>,
+    pub value_dnf: ValueDnF,
 }
 
 impl LocationInfo {
@@ -62,7 +62,10 @@ impl LocationInfo {
         &self.location
     }
 
-    pub fn value_dnf(&self) -> Option<&ValueDnF> {
-        self.value_dnf.as_ref()
+    pub fn path(&self) -> Option<&Vec<String>> {
+        self.path.as_ref()
+    }
+    pub fn value_dnf(&self) -> &ValueDnF {
+        &self.value_dnf
     }
 }

@@ -63,20 +63,24 @@ pub(crate) fn authrep_request(
                 .locations()
                 .iter()
                 .find_map(|location_info| -> Option<(Value, Option<Format>)> {
-                    let (decode, format) = match location_info.value_dnf() {
-                        Some(dnf) => (dnf.decode(), dnf.format()),
-                        None => (None, None),
+                    let (decode, format) = {
+                        let dnf = location_info.value_dnf();
+                        (dnf.decode(), dnf.format())
                     };
 
                     match location_info.location() {
                         Location::QueryString => keys.iter().find_map(|key| {
                             url.query_pairs().find_map(|(k, v)| {
                                 if key == k.as_ref() {
-                                    Value::String(v)
-                                        .decode_multiple(decode)
-                                        // XXX note: errors here are being discarded without warning
-                                        .ok()
-                                        .map(|v| (v, format))
+                                    match Value::String(v).decode_multiple(decode) {
+                                        Ok(v) => Ok(v),
+                                        Err(e) => {
+                                            warn!("Error decoding query_string {:#?}", e);
+                                            Err(e)
+                                        }
+                                    }
+                                    .ok()
+                                    .map(|v| (v, format))
                                 } else {
                                     None
                                 }
@@ -87,13 +91,18 @@ pub(crate) fn authrep_request(
                             .find_map(|key| rh.get(key))
                             .map(std::borrow::Cow::from)
                             .map(|v| {
-                                Value::String(v)
-                                    .decode_multiple(decode)
-                                    .ok()
-                                    .map(|v| (v, format))
+                                match Value::String(v).decode_multiple(decode) {
+                                    Ok(v) => Ok(v),
+                                    Err(e) => {
+                                        warn!("Error decoding header {:#?}", e);
+                                        Err(e)
+                                    }
+                                }
+                                .ok()
+                                .map(|v| (v, format))
                             })
                             .flatten(),
-                        Location::Property(pathconfig) => {
+                        Location::Property => {
                             // parse an explicit metadata path to look for the claims
                             //let path = param
                             //    .metadata()
@@ -115,8 +124,8 @@ pub(crate) fn authrep_request(
                             //            //"verified_jwt",
                             //        ]
                             //    });
-                            let path = pathconfig
-                                .as_ref()
+                            let path = location_info
+                                .path()
                                 .map(|pc| pc.iter().map(|ps| ps.as_str()).collect::<Vec<_>>())
                                 .unwrap_or_else(|| {
                                     if kind == ApplicationKind::OIDC {
@@ -134,12 +143,43 @@ pub(crate) fn authrep_request(
                             debug!("Looking up property path {}", path_s);
                             if let Some(property) = ctx.get_property(path) {
                                 let s = String::from_utf8_lossy(property.as_slice());
-                                debug!("Property value {} => {}", path_s, s.as_ref());
+                                debug!(
+                                    "Property value {} (len {}) =>\n{}",
+                                    path_s,
+                                    s.len(),
+                                    s.as_ref()
+                                );
 
-                                Value::Bytes(std::borrow::Cow::from(property))
+                                let mut cis =
+                                    protobuf::CodedInputStream::from_bytes(property.as_slice());
+                                let mut st = protobuf::well_known_types::Struct::new();
+                                match st.merge_from(&mut cis) {
+                                    Ok(_) => debug!("merged OK"),
+                                    Err(e) => debug!("merge FAILED: {:#?}", e),
+                                }
+
+                                // find first byte that matches & 0x0f < 6 for protobuf type 0-5
+                                let b = property.as_slice();
+                                let ss = b
+                                    .iter()
+                                    .skip(113)
+                                    .skip_while(|&&b| b & 0x0f > 5 || b == 0)
+                                    .map(|&b| b)
+                                    .collect::<Vec<_>>();
+                                let s = String::from_utf8_lossy(ss.as_slice());
+                                debug!("New Value (len {}) =>\n{}", s.len(), s.as_ref());
+
+                                match Value::Bytes(std::borrow::Cow::from(ss))
                                     .decode_multiple(decode)
-                                    .ok()
-                                    .map(|v| (v, format))
+                                {
+                                    Ok(v) => Ok(v),
+                                    Err(e) => {
+                                        warn!("Error decoding property {:#?}", e);
+                                        Err(e)
+                                    }
+                                }
+                                .ok()
+                                .map(|v| (v, format))
                             } else {
                                 debug!("Property path not found {}", path_s);
                                 None

@@ -1,3 +1,4 @@
+//use protobuf::Message;
 use std::borrow::Cow;
 use thiserror::Error;
 
@@ -10,7 +11,8 @@ pub(crate) enum ValueError<'a> {
     #[error("error decoding base64")]
     DecodeBase64(Value<'a>, #[source] base64::DecodeError),
     #[error("error decoding protobuf")]
-    DecodeProtobuf(Value<'a>, #[source] protobuf::ProtobufError),
+    //DecodeProtobuf(Value<'a>, #[source] protobuf::ProtobufError),
+    DecodeProtobuf(Value<'a>, #[source] prost::DecodeError),
     #[error("error decoding JSON")]
     DecodeJSON(Value<'a>, #[source] serde_json::Error),
 }
@@ -19,7 +21,8 @@ pub(crate) enum ValueError<'a> {
 pub(crate) enum Value<'a> {
     Bytes(Cow<'a, [u8]>),
     String(Cow<'a, str>),
-    ProtoValue(protobuf::well_known_types::Value),
+    //ProtoValue(protobuf::well_known_types::Struct),
+    ProtoValue(prost_types::Struct),
     //ProtoList(protobuf::well_known_types::ListValue),
     //ProtoStruct(HashMap<String, protobuf::well_known_types::Value>),
     //ProtoString(protobuf::well_known_types::StringValue),
@@ -36,11 +39,16 @@ impl<'a> Value<'a> {
             Value::Bytes(b) => String::from_utf8(b.into_owned()).ok(),
             Value::JsonValue(json) => json.as_str().map(|s| s.to_string()),
             Value::ProtoValue(mut proto) => {
-                if proto.has_string_value() {
-                    proto.take_string_value().into()
-                } else {
-                    None
-                }
+                //if proto.has_string_value() {
+                //    //proto.take_string_value().into()
+                //    None
+                //} else if proto.has_struct_value() {
+                //let s = proto.take_struct_value();
+                log::warn!("STRUCT FOUND?"); //: {:#?}", s);
+                None
+                //} else {
+                //    None
+                //}
             }
         }
     }
@@ -54,6 +62,12 @@ impl<'a> Value<'a> {
             None => return Err(ValueError::Type(self)),
         };
 
+        let hex = bytes
+            .iter()
+            .map(|c| format!("{:02x}", *c))
+            .collect::<Vec<_>>()
+            .join(" ");
+        log::debug!("Decoding bytes: [{}]", hex);
         let decode = decode.unwrap();
         let value = match decode {
             Decode::Base64Decode => Value::Bytes(Cow::from(
@@ -65,13 +79,25 @@ impl<'a> Value<'a> {
                     .map_err(|e| ValueError::DecodeBase64(self, e))?,
             )),
             Decode::ProtobufValue => {
-                let proto = {
-                    let mut cis = protobuf::CodedInputStream::from_bytes(bytes);
-                    cis.read_message::<protobuf::well_known_types::Value>()
-                };
+                //let proto = {
+                //    let mut cis = protobuf::CodedInputStream::from_bytes(bytes);
+                //    cis.read_message::<protobuf::well_known_types::Struct>()
+                //};
+                let proto = <prost_types::Struct as prost::Message>::decode(bytes);
 
+                log::warn!("protobuf parsing result: {:#?}", proto);
                 match proto {
-                    Ok(value) => Value::ProtoValue(value),
+                    Ok(value) => {
+                        //let type_id = value.type_id();
+                        //log::warn!("protobuf type id {:#?}", type_id);
+                        //if value.has_struct_value() {
+                        //    log::warn!("protobuf has struct")
+                        //} else {
+                        //    log::warn!("protobuf has struct FAILED")
+                        //}
+                        log::warn!("parsed ok");
+                        Value::ProtoValue(value)
+                    }
                     Err(e) => Err(ValueError::DecodeProtobuf(self, e))?,
                 }
             }
