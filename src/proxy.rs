@@ -1,7 +1,8 @@
 mod authrep;
+mod decode;
 mod request_headers;
 
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
@@ -66,7 +67,10 @@ impl HttpContext for HttpAuthThreescale {
             }
         };
 
-        info!("threescale_wasm_auth: on_http_request_headers: call token is {}", call_token);
+        info!(
+            "threescale_wasm_auth: on_http_request_headers: call token is {}",
+            call_token
+        );
 
         FilterHeadersStatus::StopIteration
     }
@@ -79,7 +83,10 @@ impl HttpContext for HttpAuthThreescale {
 
 impl Context for HttpAuthThreescale {
     fn on_http_call_response(&mut self, call_token: u32, _: usize, _: usize, _: usize) {
-        info!("threescale_wasm_auth: on_http_call_response: call_token is {}", call_token);
+        info!(
+            "threescale_wasm_auth: on_http_call_response: call_token is {}",
+            call_token
+        );
         let authorized = self
             .get_http_call_response_headers()
             .into_iter()
@@ -153,39 +160,36 @@ impl RootContext for RootAuthThreescale {
             plugin_configuration_size
         );
 
-        let conf = proxy_wasm::hostcalls::get_buffer(
+        let conf = match proxy_wasm::hostcalls::get_buffer(
             BufferType::PluginConfiguration,
             0,
             plugin_configuration_size,
-        );
+        ) {
+            Ok(Some(conf)) => conf,
+            Ok(None) => {
+                warn!("empty module configuration - module has no effect");
+                return true;
+            }
+            Err(e) => {
+                error!("error retrieving module configuration: {:#?}", e);
+                return false;
+            }
+        };
 
-        if let Err(e) = conf {
-            error!(
-                "on_configure: error retrieving plugin configuration: {:#?}",
-                e
-            );
-            return false;
-        }
+        debug!("loaded raw config");
 
-        let conf = conf.unwrap();
-        if conf.is_none() {
-            warn!("on_configure: empty plugin configuration");
-            return true;
-        }
+        let conf = match Configuration::try_from(conf.as_slice()) {
+            Ok(conf) => conf,
+            Err(e) => {
+                let conf_str = String::from_utf8_lossy(conf.as_slice());
+                for line in crate::util::serde_json_error_lines(&e, conf_str.as_ref()) {
+                    error!("{}", line);
+                }
+                return false;
+            }
+        };
 
-        let conf = conf.unwrap();
-        info!(
-            "on_configure: raw config is {}",
-            String::from_utf8_lossy(conf.as_slice())
-        );
-
-        let conf = Configuration::try_from(conf.as_slice());
-        if let Err(e) = conf {
-            error!("on_configure: error parsing plugin configuration {}", e);
-            return false;
-        }
-
-        self.configuration = conf.unwrap().into();
+        self.configuration = conf.into();
         info!(
             "on_configure: plugin configuration {:#?}",
             self.configuration

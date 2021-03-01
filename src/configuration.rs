@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
+mod location;
+pub(crate) use location::*;
+
 #[derive(Debug, Error)]
 pub(crate) enum MissingError {
     #[error("no backend configured")]
@@ -58,17 +61,6 @@ impl Backend {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum Location {
-    Header,
-    QueryString,
-    //Body,
-    //Trailer,
-    Property(Option<Vec<String>>),
-    //Any,
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ApplicationKind {
@@ -81,16 +73,15 @@ pub(crate) enum ApplicationKind {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Parameter<K> {
-    locations: Vec<Location>,
+    locations: Vec<LocationInfo>,
     kind: ApplicationKind,
     keys: Vec<K>,
-    //metadata: Option<HashMap<String, serde_json::Value>>,
     #[serde(flatten)]
     other: HashMap<String, serde_json::Value>,
 }
 
 impl<K> Parameter<K> {
-    pub fn locations(&self) -> &Vec<Location> {
+    pub fn locations(&self) -> &Vec<LocationInfo> {
         self.locations.as_ref()
     }
 
@@ -101,10 +92,6 @@ impl<K> Parameter<K> {
     pub fn keys(&self) -> &Vec<K> {
         self.keys.as_ref()
     }
-
-    //pub fn metadata(&self) -> Option<&HashMap<String, serde_json::Value>> {
-    //    self.metadata.as_ref()
-    //}
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -196,7 +183,7 @@ pub(crate) struct Configuration {
 }
 
 impl TryFrom<&[u8]> for Configuration {
-    type Error = anyhow::Error;
+    type Error = serde_json::Error;
 
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
         Ok(serde_json::from_slice(buf)?)
@@ -268,7 +255,9 @@ mod test {
                     "kind": "oidc",
                     "keys": ["aud", "azp"],
                     "locations": [
-                      "property": ["one", "two"]
+                        {
+                            "location": { "property": ["one", "two"] }
+                        }
                     ]
                   }
                 ],
