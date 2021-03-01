@@ -182,7 +182,7 @@ impl RootContext for RootAuthThreescale {
             Ok(conf) => conf,
             Err(e) => {
                 let conf_str = String::from_utf8_lossy(conf.as_slice());
-                for line in crate::util::serde_json_error_lines(&e, conf_str.as_ref()) {
+                for line in crate::util::serde_json_error_lines(&e, conf_str.as_ref(), 2, 2) {
                     error!("{}", line);
                 }
                 return false;
