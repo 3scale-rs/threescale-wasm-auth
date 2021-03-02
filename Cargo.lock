@@ -165,7 +165,7 @@ dependencies = [
 [[package]]
 name = "proxy-wasm"
 version = "0.1.3"
-source = "git+https://github.com/3scale/proxy-wasm-rust-sdk?branch=3scale#ac7931936543bbab9982717801e4a68212d48365"
+source = "git+https://github.com/3scale/proxy-wasm-rust-sdk?branch=3scale#6034d962f3a04438c084d576b7ce38839cf64496"
 dependencies = [
  "hashbrown",
  "log",
@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.62"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea1c6153794552ea7cf7cf63b1231a25de00ec90db326ba6264440fa08e31486"
+checksum = "799e97dc9fdae36a5c8b8f2cae9ce2ee9fdce2058c57a93e6099d919fd982f79"
 dependencies = [
  "itoa",
  "ryu",
