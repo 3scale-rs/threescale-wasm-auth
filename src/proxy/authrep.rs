@@ -131,59 +131,78 @@ pub(crate) fn authrep_request(
                                     if kind == ApplicationKind::OIDC {
                                         vec![
                                             "metadata",
-                                            "filter_metadata",
-                                            "envoy.filters.http.jwt_authn",
+                                            //"filter_metadata",
+                                            //"envoy.filters.http.jwt_authn",
                                             //"verified_jwt",
                                         ]
                                     } else {
                                         vec![]
                                     }
                                 });
-                            let path_s = path.join("/");
-                            debug!("Looking up property path {}", path_s);
-                            if let Some(property) = ctx.get_property(path) {
-                                let s = String::from_utf8_lossy(property.as_slice());
-                                debug!(
-                                    "Property value {} (len {}) =>\n{}",
-                                    path_s,
-                                    s.len(),
-                                    s.as_ref()
-                                );
+                            let paths_to_try = [
+                                vec!["metadata"],
+                                vec!["metadata", "filter_metadata"],
+                                vec![
+                                    "metadata",
+                                    "filter_metadata",
+                                    "envoy.filters.http.jwt_authn",
+                                ],
+                                vec![
+                                    "metadata",
+                                    "filter_metadata",
+                                    "envoy.filters.http.jwt_authn",
+                                    "verified_jwt",
+                                ],
+                            ];
+                            for path in paths_to_try.iter() {
+                                let path_s = path.join("/");
+                                debug!("Looking up property path {}", path_s);
+                                let res = if let Some(property) = ctx.get_property(path.clone()) {
+                                    //let s = String::from_utf8_lossy(property.as_slice());
+                                    //debug!(
+                                    //    "Property value {} (len {}) =>\n{}",
+                                    //    path_s,
+                                    //    s.len(),
+                                    //    s.as_ref()
+                                    //);
 
-                                let mut cis =
-                                    protobuf::CodedInputStream::from_bytes(property.as_slice());
-                                let mut st = protobuf::well_known_types::Struct::new();
-                                match st.merge_from(&mut cis) {
-                                    Ok(_) => debug!("merged OK"),
-                                    Err(e) => debug!("merge FAILED: {:#?}", e),
-                                }
+                                    //let mut cis =
+                                    //    protobuf::CodedInputStream::from_bytes(property.as_slice());
+                                    //let mut st = protobuf::well_known_types::Struct::new();
+                                    //match st.merge_from(&mut cis) {
+                                    //    Ok(_) => debug!("merged OK"),
+                                    //    Err(e) => debug!("merge FAILED: {:#?}", e),
+                                    //}
 
-                                // find first byte that matches & 0x0f < 6 for protobuf type 0-5
-                                let b = property.as_slice();
-                                let ss = b
-                                    .iter()
-                                    .skip(113)
-                                    .skip_while(|&&b| b & 0x0f > 5 || b == 0)
-                                    .map(|&b| b)
-                                    .collect::<Vec<_>>();
-                                let s = String::from_utf8_lossy(ss.as_slice());
-                                debug!("New Value (len {}) =>\n{}", s.len(), s.as_ref());
+                                    // find first byte that matches & 0x0f < 6 for protobuf type 0-5
+                                    let b = property.as_slice();
+                                    let ss = b
+                                        .iter()
+                                        //    //.skip(113)
+                                        //    //.skip_while(|&&b| b & 0x0f > 5 || b == 0)
+                                        .map(|&b| b)
+                                        .collect::<Vec<_>>();
+                                    //let s = String::from_utf8_lossy(ss.as_slice());
+                                    //debug!("New Value (len {}) =>\n{}", s.len(), s.as_ref());
 
-                                match Value::Bytes(std::borrow::Cow::from(ss))
-                                    .decode_multiple(decode)
-                                {
-                                    Ok(v) => Ok(v),
-                                    Err(e) => {
-                                        warn!("Error decoding property {:#?}", e);
-                                        Err(e)
+                                    match Value::Bytes(std::borrow::Cow::from(ss))
+                                        .decode_multiple(decode)
+                                    {
+                                        Ok(v) => Ok(v),
+                                        Err(e) => {
+                                            //warn!("Error decoding property {:#?}", e);
+                                            warn!("Error decoding property for {}", path_s);
+                                            Err(e)
+                                        }
                                     }
-                                }
-                                .ok()
-                                .map(|v| (v, format))
-                            } else {
-                                debug!("Property path not found {}", path_s);
-                                None
+                                    .ok()
+                                    .map(|v| (v, format))
+                                } else {
+                                    debug!("Property path not found {}", path_s);
+                                    None
+                                };
                             }
+                            None
                         }
                     }
                 })

@@ -1,8 +1,78 @@
 //use protobuf::Message;
-use std::borrow::Cow;
+use prost::Message;
+use std::{borrow::Cow, intrinsics::copy_nonoverlapping};
 use thiserror::Error;
 
 use crate::configuration::Decode;
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Metadata {
+    /// Key is the reverse DNS filter name, e.g. com.acme.widget. The envoy.*
+    /// namespace is reserved for Envoy's built-in filters.
+    #[prost(map = "string, message", tag = "1")]
+    pub filter_metadata: ::std::collections::HashMap<std::string::String, ::prost_types::Struct>,
+}
+
+pub struct Pairs {
+    pairs: Vec<(String, String)>,
+}
+
+impl Pairs {
+    pub fn new() -> Self {
+        Self { pairs: vec![] }
+    }
+
+    pub fn decode(b: &mut [u8]) -> Self {
+        let mut b32 = b as *const _ as *const u32;
+        let pairs_len = unsafe { *b32 } as usize;
+        let mut pairs = Vec::with_capacity(pairs_len);
+        let mut b8 = unsafe { b32.offset(pairs_len as isize * 2 + 1) as *const u8 };
+        for _ in 0..pairs_len {
+            unsafe {
+                b32 = b32.add(1);
+                let k_len = *b32 as usize;
+                b32 = b32.add(1);
+                let v_len = *b32 as usize;
+                let mut k = String::with_capacity(k_len);
+                let mut v = String::with_capacity(v_len);
+                core::ptr::copy_nonoverlapping(b8, k.as_mut_ptr(), k_len);
+                b8 = b8.add(k_len + 1);
+                core::ptr::copy_nonoverlapping(b8, v.as_mut_ptr(), v_len);
+                b8 = b8.add(v_len + 1);
+                pairs.push((k, v));
+            }
+        }
+
+        Self { pairs }
+    }
+
+    pub fn encode(&self, b: &mut [u8]) {
+        let mut b32 = b as *mut _ as *mut u32; // XXX almost surely UB
+        let pairs_len = self.pairs.len() as u32;
+        unsafe { *b32 = pairs_len };
+        for (k, v) in &self.pairs {
+            unsafe {
+                b32 = b32.add(1);
+                *b32 = k.len() as u32;
+                b32 = b32.add(1);
+                *b32 = v.len() as u32;
+            }
+        }
+        let mut b8 = b32 as *mut u8;
+        for (k, v) in &self.pairs {
+            unsafe {
+                std::ptr::copy_nonoverlapping(k.as_ptr(), b8, k.len());
+                b8 = b8.add(k.len());
+                *b8 = 0;
+                b8 = b8.add(1);
+                std::ptr::copy_nonoverlapping(v.as_ptr(), b8, v.len());
+                b8 = b8.add(v.len());
+                *b8 = 0;
+                b8 = b8.add(1);
+            }
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub(crate) enum ValueError<'a> {
@@ -22,7 +92,8 @@ pub(crate) enum Value<'a> {
     Bytes(Cow<'a, [u8]>),
     String(Cow<'a, str>),
     //ProtoValue(protobuf::well_known_types::Struct),
-    ProtoValue(prost_types::Struct),
+    //ProtoValue(prost_types::Struct),
+    ProtoValue(Metadata),
     //ProtoList(protobuf::well_known_types::ListValue),
     //ProtoStruct(HashMap<String, protobuf::well_known_types::Value>),
     //ProtoString(protobuf::well_known_types::StringValue),
@@ -67,7 +138,7 @@ impl<'a> Value<'a> {
             .map(|c| format!("{:#02x?}", *c))
             .collect::<Vec<_>>()
             .join(", ");
-        log::debug!("Decoding bytes: [{}]", hex);
+        log::debug!("Decoding {} bytes: [{}]", bytes.len(), hex);
         let decode = decode.unwrap();
         let value = match decode {
             Decode::Base64Decode => Value::Bytes(Cow::from(
@@ -83,7 +154,8 @@ impl<'a> Value<'a> {
                 //    let mut cis = protobuf::CodedInputStream::from_bytes(bytes);
                 //    cis.read_message::<protobuf::well_known_types::Struct>()
                 //};
-                let proto = <prost_types::Struct as prost::Message>::decode(bytes);
+                //let proto = <prost_types::Struct as prost::Message>::decode(bytes);
+                let proto = Metadata::decode(bytes);
 
                 log::warn!("protobuf parsing result: {:#?}", proto);
                 match proto {
@@ -95,7 +167,7 @@ impl<'a> Value<'a> {
                         //} else {
                         //    log::warn!("protobuf has struct FAILED")
                         //}
-                        log::warn!("parsed ok");
+                        log::warn!("===> parsed ok!!!");
                         Value::ProtoValue(value)
                     }
                     Err(e) => Err(ValueError::DecodeProtobuf(self, e))?,
