@@ -1,6 +1,6 @@
 //use protobuf::Message;
 use prost::Message;
-use std::{borrow::Cow, intrinsics::copy_nonoverlapping};
+use std::borrow::Cow;
 use thiserror::Error;
 
 use crate::configuration::Decode;
@@ -13,72 +13,115 @@ pub struct Metadata {
     pub filter_metadata: ::std::collections::HashMap<std::string::String, ::prost_types::Struct>,
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct Pairs {
     pairs: Vec<(String, String)>,
 }
 
 impl Pairs {
-    pub fn new() -> Self {
-        Self { pairs: vec![] }
-    }
-
-    pub fn decode(b: &mut [u8]) -> Self {
-        let mut b32 = b as *const _ as *const u32;
-        let pairs_len = unsafe { *b32 } as usize;
-        let mut pairs = Vec::with_capacity(pairs_len);
-        let mut b8 = unsafe { b32.offset(pairs_len as isize * 2 + 1) as *const u8 };
-        for _ in 0..pairs_len {
-            unsafe {
-                b32 = b32.add(1);
-                let k_len = *b32 as usize;
-                b32 = b32.add(1);
-                let v_len = *b32 as usize;
-                let mut k = String::with_capacity(k_len);
-                let mut v = String::with_capacity(v_len);
-                core::ptr::copy_nonoverlapping(b8, k.as_mut_ptr(), k_len);
-                b8 = b8.add(k_len + 1);
-                core::ptr::copy_nonoverlapping(b8, v.as_mut_ptr(), v_len);
-                b8 = b8.add(v_len + 1);
-                pairs.push((k, v));
-            }
-        }
-
+    pub fn new(pairs: Vec<(String, String)>) -> Self {
         Self { pairs }
     }
 
-    pub fn encode(&self, b: &mut [u8]) -> Result<(), ()> {
+    // None retval means usize can't represent the length requirement
+    fn required_buffer_length(&self) -> Option<usize> {
+        self.pairs
+            .iter()
+            .try_fold(core::mem::size_of::<u32>(), |acc, (k, v)| {
+                acc.checked_add(
+                    k.len()
+                        .saturating_add(v.len())
+                        .saturating_add(2)
+                        .saturating_mul(core::mem::size_of::<u32>()),
+                )
+            })
+    }
+
+    // Returns Self or error with a hint to the very minimum required buffer length.
+    // Note: minimum required length can vary as data is parsed, so buffers should at least ensure
+    //       that many bytes are available before calling again (for which there could be another
+    //       bigger requirement).
+    pub fn decode(b: &mut [u8]) -> Result<Self, usize> {
+        let buf_len = b.len();
+        // ensure min length of 1 u32
+        if buf_len < core::mem::size_of::<u32>() {
+            return Err(core::mem::size_of::<u32>());
+        }
+        let mut b32 = b as *const _ as *const u32;
+        // read number of pairs
+        let pairs_len = unsafe { *b32 } as usize;
+        // minimum required length is now 1 + pairs_len * 2 (for k and v lens) * sizeof(u32) + pairs_len * 2 (for k and v zero-termination) * sizeof(u8)
+        let required_len = core::mem::size_of::<u32>()
+            + pairs_len * 2 * core::mem::size_of::<u32>()
+            + pairs_len * 2 * core::mem::size_of::<u8>();
+        if buf_len < required_len {
+            return Err(required_len);
+        }
+        let mut pairs = Vec::with_capacity(pairs_len);
+        let required_len = (0..pairs_len)
+            .try_fold(required_len, |acc, _| {
+                let (k_len, v_len) = unsafe {
+                    b32 = b32.add(1);
+                    let k_len = *b32 as usize;
+                    b32 = b32.add(1);
+                    let v_len = *b32 as usize;
+                    pairs.push((String::with_capacity(k_len), String::with_capacity(v_len)));
+                    (k_len, v_len)
+                };
+                acc.checked_add(
+                    k_len
+                        .saturating_add(v_len)
+                        .saturating_add(2 * core::mem::size_of::<u8>()),
+                )
+            })
+            .ok_or(usize::MAX)?;
+        if buf_len < required_len {
+            return Err(required_len - buf_len);
+        }
+        let mut b8 = unsafe { b32.offset(1) } as *const u8;
+        for (k, v) in &mut pairs {
+            unsafe {
+                core::ptr::copy_nonoverlapping(b8, k.as_mut_ptr(), k.len());
+                b8 = b8.add(k.len() + 1);
+                core::ptr::copy_nonoverlapping(b8, v.as_mut_ptr(), v.len());
+                b8 = b8.add(v.len() + 1);
+            }
+        }
+
+        Ok(Self { pairs })
+    }
+
+    // Encodes the pairs into a buffer, returns error with amount of bytes short of requirements.
+    // Err(usize::MAX) is there is no way this can work
+    pub fn encode(&self, b: &mut [u8]) -> Result<(), usize> {
         let buf_len = b.len();
         let pairs_len = self.pairs.len();
-        let required_len = self.pairs.iter(pairs_len).fold(0, |acc, (k, v) {
-            acc += k.len().saturating_add(v.len()).saturating_add(2)
-        });
-        let mut required_len =
-            pairs_len * 2 * core::mem::size_of::<u32>() + core::mem::size_of::<u32>();
+        let required_len = self.required_buffer_length().ok_or(usize::MAX)?;
         if buf_len < required_len {
-            return Err(());
+            return Err(required_len - buf_len);
         }
-        let mut b32 = b as *mut _ as *mut u32; // XXX almost surely UB
+        let mut b32 = b as *mut _ as *mut u32;
+        // write number of pairs
         unsafe { *b32 = pairs_len as u32 };
+        // write all keylen, valuelen
         for (k, v) in &self.pairs {
             unsafe {
                 b32 = b32.add(1);
                 *b32 = k.len() as u32;
                 b32 = b32.add(1);
                 *b32 = v.len() as u32;
-                required_len = required_len
-                    .saturating_add(k.len())
-                    .saturating_add(v.len())
-                    .saturating_add(2);
             }
         }
         let mut b8 = b32 as *mut u8;
         for (k, v) in &self.pairs {
             unsafe {
                 std::ptr::copy_nonoverlapping(k.as_ptr(), b8, k.len());
+                // zero-terminate
                 b8 = b8.add(k.len());
                 *b8 = 0;
                 b8 = b8.add(1);
                 std::ptr::copy_nonoverlapping(v.as_ptr(), b8, v.len());
+                // zero-terminate
                 b8 = b8.add(v.len());
                 *b8 = 0;
                 b8 = b8.add(1);
@@ -100,6 +143,8 @@ pub(crate) enum ValueError<'a> {
     DecodeProtobuf(Value<'a>, #[source] prost::DecodeError),
     #[error("error decoding JSON")]
     DecodeJSON(Value<'a>, #[source] serde_json::Error),
+    #[error("error decoding pairs")]
+    DecodePairs(Value<'a>),
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +161,7 @@ pub(crate) enum Value<'a> {
     //JsonString(serde_json::Value::String),
     //JsonList(serde_json::Value::Array(Vec<serde_json::Value>)),
     //JsonObject(serde_json::Value::Object(serde_json::Map<String, serde_json::Value>)),
+    PairsValue(Pairs),
 }
 
 impl<'a> Value<'a> {
@@ -123,6 +169,11 @@ impl<'a> Value<'a> {
         match self {
             Value::String(s) => Some(s.into_owned()),
             Value::Bytes(b) => String::from_utf8(b.into_owned()).ok(),
+            Value::PairsValue(p) => {
+                let s = String::with_capacity(1024)
+                let r = p.encode(s.as_bytes_mut()).unwrap();
+                s
+            }
             Value::JsonValue(json) => json.as_str().map(|s| s.to_string()),
             Value::ProtoValue(mut proto) => {
                 //if proto.has_string_value() {
