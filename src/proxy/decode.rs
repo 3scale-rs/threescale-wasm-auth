@@ -46,16 +46,29 @@ impl Pairs {
         Self { pairs }
     }
 
-    pub fn encode(&self, b: &mut [u8]) {
+    pub fn encode(&self, b: &mut [u8]) -> Result<(), ()> {
+        let buf_len = b.len();
+        let pairs_len = self.pairs.len();
+        let required_len = self.pairs.iter(pairs_len).fold(0, |acc, (k, v) {
+            acc += k.len().saturating_add(v.len()).saturating_add(2)
+        });
+        let mut required_len =
+            pairs_len * 2 * core::mem::size_of::<u32>() + core::mem::size_of::<u32>();
+        if buf_len < required_len {
+            return Err(());
+        }
         let mut b32 = b as *mut _ as *mut u32; // XXX almost surely UB
-        let pairs_len = self.pairs.len() as u32;
-        unsafe { *b32 = pairs_len };
+        unsafe { *b32 = pairs_len as u32 };
         for (k, v) in &self.pairs {
             unsafe {
                 b32 = b32.add(1);
                 *b32 = k.len() as u32;
                 b32 = b32.add(1);
                 *b32 = v.len() as u32;
+                required_len = required_len
+                    .saturating_add(k.len())
+                    .saturating_add(v.len())
+                    .saturating_add(2);
             }
         }
         let mut b8 = b32 as *mut u8;
@@ -71,6 +84,8 @@ impl Pairs {
                 b8 = b8.add(1);
             }
         }
+
+        Ok(())
     }
 }
 
