@@ -15,11 +15,11 @@ pub struct Metadata {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Pairs {
-    pairs: Vec<(String, String)>,
+    pairs: Vec<(String, Vec<u8>)>,
 }
 
 impl Pairs {
-    pub fn new(pairs: Vec<(String, String)>) -> Self {
+    pub fn new(pairs: Vec<(String, Vec<u8>)>) -> Self {
         Self { pairs }
     }
 
@@ -66,7 +66,7 @@ impl Pairs {
         if buf_len < required_len {
             return Err(required_len);
         }
-        let mut pairs = Vec::with_capacity(pairs_len);
+        let mut sizes = Vec::with_capacity(pairs_len);
         let required_len = (0..pairs_len)
             .try_fold(required_len, |acc, _| {
                 let (k_len, v_len) = unsafe {
@@ -74,7 +74,7 @@ impl Pairs {
                     let k_len = *b32 as usize;
                     b32 = b32.add(1);
                     let v_len = *b32 as usize;
-                    pairs.push((String::with_capacity(k_len), String::with_capacity(v_len)));
+                    sizes.push((k_len, v_len));
                     (k_len, v_len)
                 };
                 acc.checked_add(k_len.saturating_add(v_len))
@@ -84,14 +84,17 @@ impl Pairs {
             return Err(required_len - buf_len);
         }
         let mut b8 = unsafe { b32.offset(1) } as *const u8;
-        for (k, v) in &mut pairs {
-            unsafe {
-                core::ptr::copy_nonoverlapping(b8, k.as_mut_ptr(), k.len());
-                b8 = b8.add(k.len() + 1);
-                core::ptr::copy_nonoverlapping(b8, v.as_mut_ptr(), v.len());
-                b8 = b8.add(v.len() + 1);
-            }
-        }
+        let pairs = sizes.iter()
+          .fold(Vec::with_capacity(pairs_len), |mut acc, &(k_len, v_len)| {
+            let s = String::from_utf8_lossy(
+                unsafe { core::slice::from_raw_parts(b8, k_len) }
+            ).into_owned();
+            unsafe { b8 = b8.add(k_len + 1) };
+            let v = unsafe { core::slice::from_raw_parts(b8, v_len) }.to_owned();
+            unsafe { b8 = b8.add(v_len + 1) };
+            acc.push((s, v));
+            acc
+        });
 
         Ok(Self { pairs })
     }
