@@ -1,3 +1,5 @@
+pub mod pairs;
+
 use protobuf::Message;
 
 pub fn serde_json_error_lines<'i, 'e: 'i>(
