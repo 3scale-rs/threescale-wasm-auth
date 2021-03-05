@@ -135,7 +135,7 @@ resources:
                                       {
                                         "location": "property",
                                         "path": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn", "verified_jwt"],
-                                        "decode": ["wasm-pairs"]
+                                        "decode": ["protobuf"]
                                       }
                                     ]
                                   }
