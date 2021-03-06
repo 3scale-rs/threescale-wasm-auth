@@ -153,6 +153,13 @@ pub(crate) fn authrep_request(
                                     "envoy.filters.http.jwt_authn",
                                     "verified_jwt",
                                 ],
+                                vec![
+                                    "metadata",
+                                    "filter_metadata",
+                                    "envoy.filters.http.jwt_authn",
+                                    "verified_jwt",
+                                    "azp",
+                                ],
                             ];
                             for path in paths_to_try.iter() {
                                 let path_s = path.join("/");
