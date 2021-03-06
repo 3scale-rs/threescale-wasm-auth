@@ -12,6 +12,54 @@ impl Pairs {
         self.pairs.as_ref()
     }
 
+    pub fn bytes(&self, key: &str) -> Option<&[u8]> {
+        self.pairs
+            .iter()
+            .find(|(k, _)| k.as_str() == key)
+            .map(|(_, v)| v.as_slice())
+    }
+
+    pub fn get_aligned<T>(&self, key: &str) -> Option<&T> {
+        self.bytes(key).and_then(|b| {
+            if b.len() < core::mem::size_of::<T>()
+                || b.as_ptr() as usize % core::mem::align_of::<T>() != 0
+            {
+                None
+            } else {
+                let p = unsafe { &*(b.as_ptr() as *const T) };
+                Some(p)
+            }
+        })
+    }
+
+    pub fn get<T: ToOwned>(&self, key: &str) -> Option<std::borrow::Cow<T>> {
+        match self.get_aligned::<T>(key) {
+            Some(t) => Some(std::borrow::Cow::Borrowed(t)),
+            None => self.bytes(key).and_then(|b| {
+                if b.len() < core::mem::size_of::<T>() {
+                    None
+                } else {
+                    // unaligned
+                    let p = b.as_ptr() as *const T;
+                    let p = unsafe { p.read_unaligned() };
+                    Some(std::borrow::Cow::Owned(p.to_owned()))
+                }
+            }),
+        }
+    }
+
+    pub fn get_string(&self, key: &str) -> Option<std::borrow::Cow<str>> {
+        self.bytes(key).map(|b| String::from_utf8_lossy(b))
+    }
+
+    pub fn get_f64(&self, key: &str) -> Option<f64> {
+        self.get_copy(key)
+    }
+
+    pub fn get_copy<T: Copy>(&self, key: &str) -> Option<T> {
+        self.get::<T>(key).map(|c| c.into_owned())
+    }
+
     pub fn into_inner(self) -> Vec<(String, Vec<u8>)> {
         self.pairs
     }
