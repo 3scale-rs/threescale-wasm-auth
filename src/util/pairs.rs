@@ -1,3 +1,6 @@
+use std::convert::{TryFrom, TryInto};
+use std::{borrow::Cow, ops::Deref};
+
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct Pairs {
     pairs: Vec<(String, Vec<u8>)>,
@@ -32,28 +35,96 @@ impl Pairs {
         })
     }
 
-    pub fn get<T: ToOwned>(&self, key: &str) -> Option<std::borrow::Cow<T>> {
-        match self.get_aligned::<T>(key) {
-            Some(t) => Some(std::borrow::Cow::Borrowed(t)),
-            None => self.bytes(key).and_then(|b| {
-                if b.len() < core::mem::size_of::<T>() {
-                    None
-                } else {
-                    // unaligned
-                    let p = b.as_ptr() as *const T;
-                    let p = unsafe { p.read_unaligned() };
-                    Some(std::borrow::Cow::Owned(p.to_owned()))
-                }
-            }),
-        }
+    pub fn get<'a, T: ToOwned>(&'a self, key: &str) -> Option<Cow<'a, T>> {
+        self.bytes(key).and_then(|b| {
+            if b.len() < core::mem::size_of::<T>() {
+                return None;
+            }
+            let bptr = b.as_ptr();
+            if bptr as usize % core::mem::align_of::<T>() != 0 {
+                // unaligned access, copy
+                let p = unsafe { (bptr as *const T).read_unaligned() };
+                Some(Cow::Owned(p.to_owned()))
+            } else {
+                // aligned access
+                let p = unsafe { &*(bptr as *const T) };
+                // p should be inferred to have lifetime 'a
+                Some(Cow::Borrowed(p))
+            }
+        })
     }
 
-    pub fn get_string(&self, key: &str) -> Option<std::borrow::Cow<str>> {
+    // This creates a slice of T from the bytes passed in without any validation,
+    // and creates a Vec if the slice is not type-aligned.
+    unsafe fn get_slice<'a, T>(&'a self, key: &str) -> Option<Cow<'a, [T]>>
+    where
+        [T]: ToOwned<Owned = Vec<T>>,
+    {
+        self.bytes(key).and_then(|b| {
+            // a minimum slice of 1 T and requiring a multiple of sizeof(T)
+            if b.len() < core::mem::size_of::<T>() || b.len() % core::mem::size_of::<T>() != 0 {
+                return None;
+            }
+
+            // check alignment - just having a reference to an unaligned T is UB
+            let bptr = b.as_ptr();
+            // The alignment of a slice of T is the same as an array of T which is the same as T
+            if bptr as usize % core::mem::align_of::<T>() != 0 {
+                // unaligned access
+                let elements = b.len() / core::mem::size_of::<T>();
+                let mut aligned_vec = Vec::<T>::with_capacity(elements);
+
+                #[allow(unused_unsafe)]
+                // copy slice over to the newly allocated buffer
+                unsafe {
+                    core::ptr::copy_nonoverlapping(
+                        bptr,
+                        aligned_vec.as_mut_ptr() as *mut u8,
+                        b.len(),
+                    );
+                    aligned_vec.set_len(elements);
+                };
+                Some(Cow::Owned(aligned_vec))
+            } else {
+                #[allow(unused_unsafe)]
+                let v = unsafe { core::mem::transmute(b) };
+                Some(Cow::Borrowed(v))
+            }
+        })
+    }
+
+    pub fn get_string(&self, key: &str) -> Option<Cow<str>> {
         self.bytes(key).map(|b| String::from_utf8_lossy(b))
     }
 
     pub fn get_f64(&self, key: &str) -> Option<f64> {
-        self.get_copy(key)
+        self.bytes(key).and_then(|bytes| {
+            if bytes.len() == core::mem::size_of::<f64>() {
+                <[u8; core::mem::size_of::<f64>()] as TryFrom<&[u8]>>::try_from(bytes)
+                    .map(|ary| f64::from_ne_bytes(ary))
+                    .ok()
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_<T: Sized>(&self, key: &str) -> Option<T> {
+        self.bytes(key).and_then(|bytes| {
+            if bytes.len() == core::mem::size_of::<T>() {
+                <[u8; core::mem::size_of::<T>()] as TryFrom<&[u8]>>::try_from(bytes)
+                    .map(|ary| T::from(ary))
+                    .ok()
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_bool(&self, key: &str) -> Option<f64> {
+        //let f = f64::from_ne_bytes(bytes);
+        //self.get_copy(key)
+        unsafe { self.get_slice::<f64>(key) }.and_then(|c| c.get(0).map(|&f| f))
     }
 
     pub fn get_copy<T: Copy>(&self, key: &str) -> Option<T> {
