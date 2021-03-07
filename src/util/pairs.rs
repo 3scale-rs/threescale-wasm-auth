@@ -109,22 +109,37 @@ impl Pairs {
         })
     }
 
-    pub fn get_<T: Sized>(&self, key: &str) -> Option<T> {
-        self.bytes(key).and_then(|bytes| {
-            if bytes.len() == core::mem::size_of::<T>() {
-                <[u8; core::mem::size_of::<T>()] as TryFrom<&[u8]>>::try_from(bytes)
-                    .map(|ary| T::from(ary))
+    //pub fn get_<Z>(&self, key: &str) -> Option<Z> {
+    //    const LEN: usize = core::mem::size_of::<Z>();
+    //    self.bytes(key).and_then(|bytes| {
+    //        if bytes.len() == core::mem::size_of::<Z>() {
+    //            <[u8; core::mem::size_of::<Z>()] as TryFrom<&[u8]>>::try_from(bytes)
+    //                .map(|ary| T::from(ary))
+    //                .ok()
+    //        } else {
+    //            None
+    //        }
+    //    })
+    //}
+
+    //pub fn get_bool2(&self, key: &str) -> Option<bool> {
+    //    self.get_::<bool>(key)
+    //}
+
+    pub fn get_bool(&self, key: &str) -> Option<bool> {
+        self.bytes(key).and_then(|b| {
+            if b.len() == core::mem::size_of::<bool>() {
+                <[u8; core::mem::size_of::<bool>()] as TryFrom<&[u8]>>::try_from(b)
+                    .map(|ary| unsafe { *ary.get_unchecked(0) } != 0)
                     .ok()
             } else {
                 None
             }
         })
-    }
 
-    pub fn get_bool(&self, key: &str) -> Option<f64> {
         //let f = f64::from_ne_bytes(bytes);
         //self.get_copy(key)
-        unsafe { self.get_slice::<f64>(key) }.and_then(|c| c.get(0).map(|&f| f))
+        //unsafe { self.get_slice::<f64>(key) }.and_then(|c| c.get(0).map(|&f| f))
     }
 
     pub fn get_copy<T: Copy>(&self, key: &str) -> Option<T> {
