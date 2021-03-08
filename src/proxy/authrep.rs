@@ -1,6 +1,3 @@
-// temporarily disable these because this is very much WIP
-#![allow(dead_code, unused_imports)]
-
 use std::vec;
 
 use super::decode::Value;
@@ -121,7 +118,11 @@ pub(crate) fn authrep<'a>(
                                 .map(|v| (v, format))
                             })
                             .flatten(),
-                        Location::Property => {
+                        Location::Property {
+                            path,
+                            format,
+                            lookup,
+                        } => {
                             // parse an explicit metadata path to look for the claims
                             //let path = param
                             //    .metadata()
@@ -143,7 +144,7 @@ pub(crate) fn authrep<'a>(
                             //            //"verified_jwt",
                             //        ]
                             //    });
-                            let _path = location_info
+                            let path = location_info
                                 .path()
                                 .map(|pc| pc.iter().map(|ps| ps.as_str()).collect::<Vec<_>>())
                                 .unwrap_or_else(|| {

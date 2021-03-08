@@ -93,6 +93,10 @@ impl HttpContext for HttpAuthThreescale {
             debug!("no backend configured, checking valid app list");
             match service.valid_apps() {
                 Some(valid_apps) => {
+                    debug!(
+                        "on_http_request_headers: looking for {} in valid apps",
+                        app_id
+                    );
                     if valid_apps
                         .iter()
                         .find(|&valid_app| app_id == valid_app.as_str())

@@ -26,7 +26,6 @@ pub(crate) enum ValueError<'a> {
     #[error("error decoding JSON")]
     DecodeJSON(Value<'a>, #[source] serde_json::Error),
     #[error("error decoding pairs")]
-    #[allow(dead_code)]
     DecodePairs(Value<'a>),
 }
 
@@ -44,7 +43,6 @@ pub(crate) enum Value<'a> {
     //JsonString(serde_json::Value::String),
     //JsonList(serde_json::Value::Array(Vec<serde_json::Value>)),
     //JsonObject(serde_json::Value::Object(serde_json::Map<String, serde_json::Value>)),
-    #[allow(dead_code)]
     PairsValue(Pairs),
 }
 

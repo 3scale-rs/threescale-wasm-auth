@@ -2,12 +2,38 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub(crate) enum Operation {
+    Decode {
+        input: Format,
+        kind: Decode,
+        output: Format,
+    },
+    Lookup {
+        input: Format,
+        key: String,
+        out: Format,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum Location {
-    Header,
-    QueryString,
+    Header {
+        key: String,
+        decode: Option<Vec<(Decode, Format)>>,
+    },
+    QueryString {
+        key: String,
+        decode: Option<Vec<Decode>>,
+    },
     //Body,
     //Trailer,
-    Property,
+    Property {
+        path: Vec<String>,
+        format: Format,
+        lookup: Option<Vec<(String, Format)>>,
+        decode: Option<Vec<Decode>>,
+    },
     //Any,
 }
 
@@ -27,8 +53,11 @@ pub(crate) enum Decode {
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Format {
+    String,
+    Base64String,
     Json,
     ProtobufStruct,
+    Pairs,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -51,6 +80,7 @@ impl ValueDnF {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) struct LocationInfo {
+    #[serde(flatten)]
     pub location: Location,
     pub path: Option<Vec<String>>,
     #[serde(flatten)]

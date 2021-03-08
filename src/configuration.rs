@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::upstream::Upstream;
 use core::convert::TryFrom;
 use serde::{Deserialize, Serialize};
@@ -561,11 +559,19 @@ mod test {
                             path: None,
                             value_dnf: ValueDnF {
                                 decode: Some(vec![Decode::Base64Decode, Decode::JsonValue]),
-                                format: Some(Format::Json),
+                                format: Some(Format::String),
                             },
                         },
                         LocationInfo {
-                            location: Location::Property,
+                            location: Location::Property {
+                                path: vec![
+                                    "metadata".into(),
+                                    "filter_metadata".into(),
+                                    "envoy.filters.http.jwt_authn".into(),
+                                ],
+                                format: Format::Pairs,
+                                lookup: Some(vec![("verified_jwt".into(), Format::String)]),
+                            },
                             path: Some(vec![
                                 "metadata".into(),
                                 "filter_metadata".into(),
@@ -578,7 +584,15 @@ mod test {
                             },
                         },
                         LocationInfo {
-                            location: Location::Property,
+                            location: Location::Property {
+                                path: vec!["metadata".into()],
+                                format: Format::ProtobufStruct,
+                                lookup: Some(vec![
+                                    ("filter_metadata".into(), Format::Pairs),
+                                    ("envoy.filters.http.jwt_authn".into(), Format::Pairs),
+                                    ("verified_jwt".into(), Format::String),
+                                ]),
+                            },
                             path: None,
                             value_dnf: ValueDnF {
                                 decode: Some(vec![Decode::ProtobufValue]),

@@ -1,6 +1,3 @@
-// temporary until WIP finishes
-#![allow(dead_code)]
-
 pub mod pairs;
 
 use protobuf::Message;
