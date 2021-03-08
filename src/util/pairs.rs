@@ -1,5 +1,5 @@
-use std::convert::{TryFrom, TryInto};
-use std::{borrow::Cow, ops::Deref};
+use std::borrow::Cow;
+use std::convert::TryFrom;
 
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct Pairs {
@@ -549,7 +549,7 @@ mod test {
         assert!(pairs.is_ok());
         let pairs = pairs.unwrap();
         println!("pairs {:#?}", pairs);
-        let (jwt_authn_name, jwt_authn_value) = pairs.into_inner().pop().unwrap();
+        let (_jwt_authn_name, jwt_authn_value) = pairs.into_inner().pop().unwrap();
         let pairs = Pairs::decode(jwt_authn_value.as_slice());
         assert!(pairs.is_ok());
         println!("pairs {:#?}", pairs);

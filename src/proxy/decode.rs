@@ -26,6 +26,7 @@ pub(crate) enum ValueError<'a> {
     #[error("error decoding JSON")]
     DecodeJSON(Value<'a>, #[source] serde_json::Error),
     #[error("error decoding pairs")]
+    #[allow(dead_code)]
     DecodePairs(Value<'a>),
 }
 
@@ -43,6 +44,7 @@ pub(crate) enum Value<'a> {
     //JsonString(serde_json::Value::String),
     //JsonList(serde_json::Value::Array(Vec<serde_json::Value>)),
     //JsonObject(serde_json::Value::Object(serde_json::Map<String, serde_json::Value>)),
+    #[allow(dead_code)]
     PairsValue(Pairs),
 }
 
@@ -51,24 +53,23 @@ impl<'a> Value<'a> {
         match self {
             Value::String(s) => Some(s.into_owned()),
             Value::Bytes(b) => String::from_utf8(b.into_owned()).ok(),
-            Value::PairsValue(p) => {
-                let mut s = String::with_capacity(1024);
-                // XXX FIXME Note: the buffer might be written to, but it won't make a proper string because len has not been... updated.
-                let r = p.encode(unsafe { s.as_bytes_mut() }).unwrap();
-                Some(s)
+            Value::PairsValue(_p) => {
+                log::error!("need to implement Pairs -> String conversion");
+                unimplemented!("need to implement Pairs -> String conversion");
             }
             Value::JsonValue(json) => json.as_str().map(|s| s.to_string()),
-            Value::ProtoValue(mut proto) => {
+            Value::ProtoValue(mut _proto) => {
                 //if proto.has_string_value() {
                 //    //proto.take_string_value().into()
                 //    None
                 //} else if proto.has_struct_value() {
                 //let s = proto.take_struct_value();
-                log::warn!("STRUCT FOUND?"); //: {:#?}", s);
-                None
+                //log::warn!("STRUCT FOUND?"); //: {:#?}", s);
                 //} else {
                 //    None
                 //}
+                log::error!("need to implement Protobuf -> String conversion");
+                unimplemented!("need to implement Protobuf -> String conversion");
             }
         }
     }

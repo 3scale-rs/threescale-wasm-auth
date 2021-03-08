@@ -22,57 +22,75 @@ impl HttpAuthThreescale {
 impl HttpContext for HttpAuthThreescale {
     fn on_http_request_headers(&mut self, _: usize) -> FilterHeadersStatus {
         info!("on_http_request_headers: context_id {}", self.context_id);
-        let backend = match self.configuration.get_backend() {
-            Err(e) => {
-                error!("error obtaining configuration for 3scale backend: {:?}", e);
-                return FilterHeadersStatus::Continue;
-            }
-            Ok(backend) => backend,
-        };
+        //let backend = match self.configuration.get_backend() {
+        //    Err(e) => {
+        //        error!("error obtaining configuration for 3scale backend: {:?}", e);
+        //        return FilterHeadersStatus::Continue;
+        //    }
+        //    Ok(backend) => backend,
+        //};
+        let backend = self.configuration.get_backend().ok();
 
         let rh = request_headers::RequestHeaders::new(self);
-        let request = match authrep::authrep_request(self, &rh) {
+
+        let (service, kind, app_id, format, usages) = match authrep::authrep(self, &rh) {
             Err(e) => {
-                error!("error computing authrep request {:?}", e);
+                error!("error computing authrep {:?}", e);
                 self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));
                 info!("threescale_wasm_auth: 403 sent");
                 return FilterHeadersStatus::StopIteration;
             }
-            Ok(request) => request,
+            Ok(params) => params,
         };
 
-        // uri will actually just get the whole path + parameters
-        let (uri, body) = request.uri_and_body();
+        if let Some(backend) = backend {
+            let request = match authrep::build_call(service, kind, app_id, format, usages) {
+                Err(e) => {
+                    error!("error computing authrep request {:?}", e);
+                    self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));
+                    info!("threescale_wasm_auth: 403 sent");
+                    return FilterHeadersStatus::StopIteration;
+                }
+                Ok(request) => request,
+            };
 
-        let headers = request
-            .headers
-            .iter()
-            .map(|(key, value)| (key.as_str(), value.as_str()))
-            .collect::<Vec<_>>();
+            // uri will actually just get the whole path + parameters
+            let (uri, body) = request.uri_and_body();
 
-        let upstream = backend.upstream();
-        let call_token = match upstream.call(
-            self,
-            uri.as_ref(),
-            request.method.as_str(),
-            headers,
-            body.map(str::as_bytes),
-            None,
-            None,
-        ) {
-            Ok(call_token) => call_token,
-            Err(e) => {
-                error!("on_http_request_headers: could not dispatch HTTP call to {}: did you create the cluster to do so? - {:#?}", upstream.name(), e);
-                return FilterHeadersStatus::StopIteration;
-            }
-        };
+            let headers = request
+                .headers
+                .iter()
+                .map(|(key, value)| (key.as_str(), value.as_str()))
+                .collect::<Vec<_>>();
 
-        info!(
-            "threescale_wasm_auth: on_http_request_headers: call token is {}",
-            call_token
-        );
+            let upstream = backend.upstream();
+            let call_token = match upstream.call(
+                self,
+                uri.as_ref(),
+                request.method.as_str(),
+                headers,
+                body.map(str::as_bytes),
+                None,
+                None,
+            ) {
+                Ok(call_token) => call_token,
+                Err(e) => {
+                    error!("on_http_request_headers: could not dispatch HTTP call to {}: did you create the cluster to do so? - {:#?}", upstream.name(), e);
+                    return FilterHeadersStatus::StopIteration;
+                }
+            };
 
-        FilterHeadersStatus::StopIteration
+            info!(
+                "threescale_wasm_auth: on_http_request_headers: call token is {}",
+                call_token
+            );
+
+            FilterHeadersStatus::StopIteration
+        } else {
+            // no backend, test against valid apps
+            debug!("no backend configured, checking valid app list");
+            FilterHeadersStatus::Continue
+        }
     }
 
     fn on_http_response_headers(&mut self, _: usize) -> FilterHeadersStatus {

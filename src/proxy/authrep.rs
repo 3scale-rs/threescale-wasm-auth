@@ -1,3 +1,6 @@
+// temporarily disable these because this is very much WIP
+#![allow(dead_code, unused_imports)]
+
 use std::vec;
 
 use super::decode::Value;
@@ -35,9 +38,25 @@ enum UnimplementedError {
 
 pub(crate) fn authrep_request(
     ctx: &HttpAuthThreescale,
-    //config: &Configuration,
     rh: &RequestHeaders,
 ) -> Result<Request, anyhow::Error> {
+    let (svc, kind, app_id, format, usages) = authrep(ctx, rh)?;
+    build_call(svc, kind, app_id, format, usages)
+}
+pub(crate) fn authrep<'a>(
+    ctx: &'a HttpAuthThreescale,
+    //config: &Configuration,
+    rh: &RequestHeaders,
+) -> Result<
+    (
+        &'a crate::configuration::Service,
+        ApplicationKind,
+        String,
+        Option<Format>,
+        std::collections::HashMap<&'a str, i64>,
+    ),
+    anyhow::Error,
+> {
     let config = ctx.configuration();
     let svclist = config.get_services()?;
 
@@ -124,7 +143,7 @@ pub(crate) fn authrep_request(
                             //            //"verified_jwt",
                             //        ]
                             //    });
-                            let path = location_info
+                            let _path = location_info
                                 .path()
                                 .map(|pc| pc.iter().map(|ps| ps.as_str()).collect::<Vec<_>>())
                                 .unwrap_or_else(|| {
@@ -164,7 +183,7 @@ pub(crate) fn authrep_request(
                             for path in paths_to_try.iter() {
                                 let path_s = path.join("/");
                                 debug!("Looking up property path {}", path_s);
-                                let res = if let Some(property) = ctx.get_property(path.clone()) {
+                                let _res = if let Some(property) = ctx.get_property(path.clone()) {
                                     //let s = String::from_utf8_lossy(property.as_slice());
                                     //debug!(
                                     //    "Property value {} (len {}) =>\n{}",
@@ -223,11 +242,6 @@ pub(crate) fn authrep_request(
     );
     // XXX unwrap can panic here
     let value = value.to_string().unwrap();
-    let app = match kind {
-        ApplicationKind::UserKey => Application::UserKey(value.into()),
-        ApplicationKind::AppId | ApplicationKind::OIDC => Application::AppId(value.into(), None),
-        k => anyhow::bail!(UnimplementedError::CredentialsKind(k)),
-    };
 
     let mut usages = std::collections::HashMap::new();
     for rule in svc.mapping_rules() {
@@ -241,6 +255,22 @@ pub(crate) fn authrep_request(
         }
     }
 
+    Ok((svc, kind, value, format, usages))
+}
+
+pub(crate) fn build_call(
+    service: &crate::configuration::Service,
+    kind: ApplicationKind,
+    app_id: String,
+    _format: Option<Format>,
+    usages: std::collections::HashMap<&str, i64>,
+) -> Result<Request, anyhow::Error> {
+    let app = match kind {
+        ApplicationKind::UserKey => Application::UserKey(app_id.into()),
+        ApplicationKind::AppId | ApplicationKind::OIDC => Application::AppId(app_id.into(), None),
+        k => anyhow::bail!(UnimplementedError::CredentialsKind(k)),
+    };
+
     let usage = usages
         .into_iter()
         .map(|(k, v)| (k, format!("{}", v)))
@@ -250,15 +280,17 @@ pub(crate) fn authrep_request(
     let txns = vec![txn];
     let extensions = extensions::List::new().no_body();
 
-    let service = Service::new(svc.id(), Credentials::ServiceToken(svc.token().into()));
+    let service = Service::new(
+        service.id(),
+        Credentials::ServiceToken(service.token().into()),
+    );
     let mut apicall = ApiCall::builder(&service);
     // the builder here can only fail if we fail to set a kind
     let apicall = apicall
         .transactions(&txns)
         .extensions(&extensions)
         .kind(Kind::AuthRep)
-        .build()
-        .unwrap();
+        .build()?;
 
     Ok(Request::from(&apicall))
 }

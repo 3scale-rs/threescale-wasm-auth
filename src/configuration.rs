@@ -105,6 +105,7 @@ pub(crate) struct Service {
     authorities: Vec<String>,
     credentials: Vec<Parameter<String>>,
     mapping_rules: Vec<MappingRule>,
+    valid_apps: Option<Vec<String>>,
 }
 
 impl Service {
@@ -130,6 +131,10 @@ impl Service {
 
     pub fn mapping_rules(&self) -> &Vec<MappingRule> {
         self.mapping_rules.as_ref()
+    }
+
+    pub fn valid_apps(&self) -> Option<&Vec<String>> {
+        self.valid_apps.as_ref()
     }
 
     pub fn match_authority(&self, authority: &str) -> bool {
@@ -181,7 +186,7 @@ impl Usage {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename = "3scale")]
 pub(crate) struct Configuration {
-    system: System,
+    system: Option<System>,
     backend: Option<Backend>,
     services: Option<Vec<Service>>,
 }
@@ -195,8 +200,8 @@ impl TryFrom<&[u8]> for Configuration {
 }
 
 impl Configuration {
-    pub fn system(&self) -> &System {
-        &self.system
+    pub fn system(&self) -> Option<&System> {
+        self.system.as_ref()
     }
 
     pub fn backend(&self) -> Option<&Backend> {
@@ -523,7 +528,7 @@ mod test {
 
     fn get_config() -> Configuration {
         Configuration {
-            system: System {
+            system: Some(System {
                 name: Some("system-name".into()),
                 upstream: Upstream {
                     name: "outbound|443||multitenant.3scale.net".into(),
@@ -531,7 +536,7 @@ mod test {
                     timeout: core::time::Duration::from_millis(5000),
                 },
                 token: "atoken".into(),
-            },
+            }),
             backend: Some(Backend {
                 name: Some("backend-name".into()),
                 upstream: Upstream {
@@ -544,6 +549,7 @@ mod test {
             services: Some(vec![Service {
                 id: "2555417834780".into(),
                 token: "service_token".into(),
+                valid_apps: None,
                 authorities: vec!["0.0.0.0:8080".into(), "0.0.0.0:8443".into()],
                 credentials: vec![Parameter::<String> {
                     other: HashMap::new(),

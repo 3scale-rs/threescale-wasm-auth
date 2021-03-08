@@ -1,3 +1,6 @@
+// temporary until WIP finishes
+#![allow(dead_code)]
+
 pub mod pairs;
 
 use protobuf::Message;
@@ -44,6 +47,7 @@ pub fn serde_json_error_lines<'i, 'e: 'i>(
         .skip(before_len)
         .take(after_len)
         .map(format_line);
+
     before_it
         .enumerate()
         .take(before_len)

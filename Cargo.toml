@@ -14,9 +14,9 @@ anyhow = "^1"
 thiserror = "^1"
 url = { git = "https://github.com/3scale-rs/rust-url", branch = "3scale", features = ["serde"] }
 protobuf = { git = "https://github.com/stepancheg/rust-protobuf", branch = "master", features = ["with-serde"] }
-base64 = "*"
-prost = "*"
-prost-types = "*"
+base64 = "^0.13"
+prost = "^0.7"
+prost-types = "^0.7"
 
 [lib]
 # rlib included to be able to use #[test] without compiler and linker issues
