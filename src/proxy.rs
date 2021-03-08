@@ -76,6 +76,8 @@ impl HttpContext for HttpAuthThreescale {
                 Ok(call_token) => call_token,
                 Err(e) => {
                     error!("on_http_request_headers: could not dispatch HTTP call to {}: did you create the cluster to do so? - {:#?}", upstream.name(), e);
+                    self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));
+                    info!("threescale_wasm_auth: 403 sent");
                     return FilterHeadersStatus::StopIteration;
                 }
             };
@@ -89,7 +91,30 @@ impl HttpContext for HttpAuthThreescale {
         } else {
             // no backend, test against valid apps
             debug!("no backend configured, checking valid app list");
-            FilterHeadersStatus::Continue
+            match service.valid_apps() {
+                Some(valid_apps) => {
+                    if valid_apps
+                        .iter()
+                        .find(|&valid_app| app_id == valid_app.as_str())
+                        .is_some()
+                    {
+                        // there is currently no provision to check limits nor to report - careful!
+                        debug!("found valid app_id, authorized");
+                        return FilterHeadersStatus::Continue;
+                    } else {
+                        debug!("on_http_request_headers: application not found in valid apps list");
+                        self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));
+                        info!("threescale_wasm_auth: 403 sent");
+                        return FilterHeadersStatus::StopIteration;
+                    }
+                }
+                None => {
+                    debug!("on_http_request_headers: no backend and no valid apps configured");
+                    self.send_http_response(403, vec![], Some(b"Access forbidden.\n"));
+                    info!("threescale_wasm_auth: 403 sent");
+                    return FilterHeadersStatus::StopIteration;
+                }
+            }
         }
     }
 
