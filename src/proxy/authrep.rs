@@ -3,7 +3,7 @@ use std::vec;
 use super::decode::Value;
 use super::request_headers::RequestHeaders;
 use super::HttpAuthThreescale;
-use crate::configuration::{ApplicationKind, Decode, Format, Location};
+use crate::configuration::{ApplicationKind, Decode, Format, Location, LocationInfo};
 use log::{debug, warn};
 use protobuf::{well_known_types, Message};
 use proxy_wasm::traits::Context;
@@ -31,6 +31,81 @@ enum MatchError {
 enum UnimplementedError {
     #[error("unimplemented credentials kind {0:#?}")]
     CredentialsKind(ApplicationKind),
+}
+
+fn parse_location<'a>(
+    ctx: &'a HttpAuthThreescale,
+    location_info: &LocationInfo,
+    global_keys: &[&str],
+    rh: &'a RequestHeaders,
+    url: &'a url::Url,
+) -> Option<(Value<'a>, Option<Format>)> {
+    match location_info.location() {
+        Location::QueryString { keys, decode } => {
+            let mut keys = keys.iter().map(std::ops::Deref::deref).collect::<Vec<_>>();
+            keys.extend(global_keys.iter());
+            keys.iter().find_map(|&key| {
+                url.query_pairs().find_map(|(k, v)| {
+                    if key == k.as_ref() {
+                        match Value::String(v).decode_multiple(decode.as_ref()) {
+                            Ok(v) => Ok(v),
+                            Err(e) => {
+                                warn!("Error decoding query_string {:#?}", e);
+                                Err(e)
+                            }
+                        }
+                        .ok()
+                        .map(|v| (v, Some(Format::String)))
+                    } else {
+                        None
+                    }
+                })
+            })
+        }
+        Location::Header { keys, decode } => keys
+            .iter()
+            .find_map(|key| rh.get(key))
+            .map(std::borrow::Cow::from)
+            .map(|v| {
+                match Value::String(v).decode_multiple(decode.as_ref()) {
+                    Ok(v) => Ok(v),
+                    Err(e) => {
+                        warn!("Error decoding header {:#?}", e);
+                        Err(e)
+                    }
+                }
+                .ok()
+                .map(|v| (v, Some(Format::String)))
+            })
+            .flatten(),
+        Location::Property {
+            path,
+            format,
+            lookup,
+            decode,
+        } => {
+            let path = path.iter().map(|ps| ps.as_str()).collect::<Vec<_>>();
+            let path_s = path.join("/");
+            debug!("Looking up property path {}", path_s);
+            if let Some(property) = ctx.get_property(path) {
+                let b = property.as_slice();
+                let ss = b.iter().map(|&b| b).collect::<Vec<_>>();
+
+                match Value::Bytes(std::borrow::Cow::from(ss)).decode_multiple(decode.as_ref()) {
+                    Ok(v) => Ok(v),
+                    Err(e) => {
+                        warn!("Error decoding property for {}", path_s);
+                        Err(e)
+                    }
+                }
+                .ok()
+                .map(|v| (v, Some(*format)))
+            } else {
+                debug!("Property path not found {}", path_s);
+                None
+            }
+        }
+    }
 }
 
 pub(crate) fn authrep_request(
@@ -79,159 +154,16 @@ pub(crate) fn authrep<'a>(
                 .locations()
                 .iter()
                 .find_map(|location_info| -> Option<(Value, Option<Format>)> {
-                    let (decode, format) = {
-                        let dnf = location_info.value_dnf();
-                        (dnf.decode(), dnf.format())
-                    };
-
-                    match location_info.location() {
-                        Location::QueryString => keys.iter().find_map(|key| {
-                            url.query_pairs().find_map(|(k, v)| {
-                                if key == k.as_ref() {
-                                    match Value::String(v).decode_multiple(decode) {
-                                        Ok(v) => Ok(v),
-                                        Err(e) => {
-                                            warn!("Error decoding query_string {:#?}", e);
-                                            Err(e)
-                                        }
-                                    }
-                                    .ok()
-                                    .map(|v| (v, format))
-                                } else {
-                                    None
-                                }
-                            })
-                        }),
-                        Location::Header => keys
-                            .iter()
-                            .find_map(|key| rh.get(key))
-                            .map(std::borrow::Cow::from)
-                            .map(|v| {
-                                match Value::String(v).decode_multiple(decode) {
-                                    Ok(v) => Ok(v),
-                                    Err(e) => {
-                                        warn!("Error decoding header {:#?}", e);
-                                        Err(e)
-                                    }
-                                }
-                                .ok()
-                                .map(|v| (v, format))
-                            })
-                            .flatten(),
-                        Location::Property {
-                            path,
-                            format,
-                            lookup,
-                        } => {
-                            // parse an explicit metadata path to look for the claims
-                            //let path = param
-                            //    .metadata()
-                            //    .and_then(|metadata| {
-                            //        metadata.get("path").and_then(|path| match path.as_str() {
-                            //            Some(s) => Some(s.split('/').collect::<Vec<&str>>()),
-                            //            None => path
-                            //                .as_array()?
-                            //                .iter()
-                            //                .map(serde_json::Value::as_str)
-                            //                .collect::<Option<_>>(),
-                            //        })
-                            //    })
-                            //    .unwrap_or_else(|| {
-                            //        vec![
-                            //            "metadata",
-                            //            "filter_metadata",
-                            //            "envoy.filters.http.jwt_authn",
-                            //            //"verified_jwt",
-                            //        ]
-                            //    });
-                            let path = location_info
-                                .path()
-                                .map(|pc| pc.iter().map(|ps| ps.as_str()).collect::<Vec<_>>())
-                                .unwrap_or_else(|| {
-                                    if kind == ApplicationKind::OIDC {
-                                        vec![
-                                            "metadata",
-                                            //"filter_metadata",
-                                            //"envoy.filters.http.jwt_authn",
-                                            //"verified_jwt",
-                                        ]
-                                    } else {
-                                        vec![]
-                                    }
-                                });
-                            let paths_to_try = [
-                                vec!["metadata"],
-                                vec!["metadata", "filter_metadata"],
-                                vec![
-                                    "metadata",
-                                    "filter_metadata",
-                                    "envoy.filters.http.jwt_authn",
-                                ],
-                                vec![
-                                    "metadata",
-                                    "filter_metadata",
-                                    "envoy.filters.http.jwt_authn",
-                                    "verified_jwt",
-                                ],
-                                vec![
-                                    "metadata",
-                                    "filter_metadata",
-                                    "envoy.filters.http.jwt_authn",
-                                    "verified_jwt",
-                                    "azp",
-                                ],
-                            ];
-                            for path in paths_to_try.iter() {
-                                let path_s = path.join("/");
-                                debug!("Looking up property path {}", path_s);
-                                let _res = if let Some(property) = ctx.get_property(path.clone()) {
-                                    //let s = String::from_utf8_lossy(property.as_slice());
-                                    //debug!(
-                                    //    "Property value {} (len {}) =>\n{}",
-                                    //    path_s,
-                                    //    s.len(),
-                                    //    s.as_ref()
-                                    //);
-
-                                    //let mut cis =
-                                    //    protobuf::CodedInputStream::from_bytes(property.as_slice());
-                                    //let mut st = protobuf::well_known_types::Struct::new();
-                                    //match st.merge_from(&mut cis) {
-                                    //    Ok(_) => debug!("merged OK"),
-                                    //    Err(e) => debug!("merge FAILED: {:#?}", e),
-                                    //}
-
-                                    // find first byte that matches & 0x0f < 6 for protobuf type 0-5
-                                    let b = property.as_slice();
-                                    let ss = b
-                                        .iter()
-                                        //    //.skip(113)
-                                        //    //.skip_while(|&&b| b & 0x0f > 5 || b == 0)
-                                        .map(|&b| b)
-                                        .collect::<Vec<_>>();
-                                    //let s = String::from_utf8_lossy(ss.as_slice());
-                                    //debug!("New Value (len {}) =>\n{}", s.len(), s.as_ref());
-
-                                    match Value::Bytes(std::borrow::Cow::from(ss))
-                                        .decode_multiple(decode)
-                                    {
-                                        Ok(v) => Ok(v),
-                                        Err(e) => {
-                                            //warn!("Error decoding property {:#?}", e);
-                                            warn!("Error decoding property for {}", path_s);
-                                            Err(e)
-                                        }
-                                    }
-                                    .ok()
-                                    .map(|v| (v, format))
-                                } else {
-                                    debug!("Property path not found {}", path_s);
-                                    None
-                                };
-                            }
-                            None
-                        }
-                    }
+                    parse_location(
+                        ctx,
+                        location_info,
+                        keys.iter()
+                            .map(std::ops::Deref::deref)
+                            .collect::<Vec<_>>()
+                            .as_slice(),
+                        rh,
+                        &url,
+                    )
                 })
                 .map(|value| (value, kind))
         })

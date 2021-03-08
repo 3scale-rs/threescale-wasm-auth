@@ -555,7 +555,10 @@ mod test {
                     keys: vec!["azp".into(), "aud".into(), "x-jwt-payload".into()],
                     locations: vec![
                         LocationInfo {
-                            location: Location::Header,
+                            location: Location::Header {
+                                keys: vec!["abc".into()],
+                                decode: None,
+                            },
                             path: None,
                             value_dnf: ValueDnF {
                                 decode: Some(vec![Decode::Base64Decode, Decode::JsonValue]),
@@ -571,6 +574,7 @@ mod test {
                                 ],
                                 format: Format::Pairs,
                                 lookup: Some(vec![("verified_jwt".into(), Format::String)]),
+                                decode: None,
                             },
                             path: Some(vec![
                                 "metadata".into(),
@@ -592,6 +596,7 @@ mod test {
                                     ("envoy.filters.http.jwt_authn".into(), Format::Pairs),
                                     ("verified_jwt".into(), Format::String),
                                 ]),
+                                decode: None,
                             },
                             path: None,
                             value_dnf: ValueDnF {

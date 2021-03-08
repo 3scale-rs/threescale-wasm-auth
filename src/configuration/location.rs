@@ -19,11 +19,11 @@ pub(crate) enum Operation {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Location {
     Header {
-        key: String,
-        decode: Option<Vec<(Decode, Format)>>,
+        keys: Vec<String>,
+        decode: Option<Vec<Decode>>,
     },
     QueryString {
-        key: String,
+        keys: Vec<String>,
         decode: Option<Vec<Decode>>,
     },
     //Body,
