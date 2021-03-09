@@ -3,15 +3,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Operation {
-    Decode {
-        input: Format,
-        kind: Decode,
-        output: Format,
-    },
+    Decode(Decode),
     Lookup {
         input: Format,
         key: String,
-        out: Format,
+        output: Format,
     },
 }
 
@@ -20,29 +16,26 @@ pub(crate) enum Operation {
 pub(crate) enum Location {
     Header {
         keys: Vec<String>,
-        decode: Option<Vec<Decode>>,
+        ops: Option<Vec<Operation>>,
     },
     QueryString {
         keys: Vec<String>,
-        decode: Option<Vec<Decode>>,
+        ops: Option<Vec<Operation>>,
     },
-    //Body,
-    //Trailer,
     Property {
         path: Vec<String>,
         format: Format,
-        lookup: Option<Vec<(String, Format)>>,
-        decode: Option<Vec<Decode>>,
+        keys: Vec<String>,
+        ops: Option<Vec<Operation>>,
     },
-    //Any,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Decode {
-    #[serde(rename = "base64dec")]
+    #[serde(rename = "base64")]
     Base64Decode,
-    #[serde(rename = "base64urldec")]
+    #[serde(rename = "base64_urlsafe")]
     Base64URLDecode,
     #[serde(rename = "protobuf")]
     ProtobufValue,
@@ -58,44 +51,4 @@ pub(crate) enum Format {
     Json,
     ProtobufStruct,
     Pairs,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) struct ValueDnF {
-    pub decode: Option<Vec<Decode>>,
-    pub format: Option<Format>,
-}
-
-impl ValueDnF {
-    pub fn decode(&self) -> Option<&Vec<Decode>> {
-        self.decode.as_ref()
-    }
-
-    pub fn format(&self) -> Option<Format> {
-        self.format
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) struct LocationInfo {
-    #[serde(flatten)]
-    pub location: Location,
-    pub path: Option<Vec<String>>,
-    #[serde(flatten)]
-    pub value_dnf: ValueDnF,
-}
-
-impl LocationInfo {
-    pub fn location(&self) -> &Location {
-        &self.location
-    }
-
-    pub fn path(&self) -> Option<&Vec<String>> {
-        self.path.as_ref()
-    }
-    pub fn value_dnf(&self) -> &ValueDnF {
-        &self.value_dnf
-    }
 }

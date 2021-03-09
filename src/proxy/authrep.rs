@@ -3,8 +3,8 @@ use std::vec;
 use super::decode::Value;
 use super::request_headers::RequestHeaders;
 use super::HttpAuthThreescale;
-use crate::configuration::{ApplicationKind, Decode, Format, Location, LocationInfo};
-use log::{debug, warn};
+use crate::configuration::{ApplicationKind, Decode, Format, Location};
+use log::{debug, info, warn};
 use protobuf::{well_known_types, Message};
 use proxy_wasm::traits::Context;
 use thiserror::Error;
@@ -35,19 +35,19 @@ enum UnimplementedError {
 
 fn parse_location<'a>(
     ctx: &'a HttpAuthThreescale,
-    location_info: &LocationInfo,
+    location: &Location,
     global_keys: &[&str],
     rh: &'a RequestHeaders,
     url: &'a url::Url,
 ) -> Option<(Value<'a>, Option<Format>)> {
-    match location_info.location() {
-        Location::QueryString { keys, decode } => {
+    match location {
+        Location::QueryString { keys, ops } => {
             let mut keys = keys.iter().map(std::ops::Deref::deref).collect::<Vec<_>>();
             keys.extend(global_keys.iter());
             keys.iter().find_map(|&key| {
                 url.query_pairs().find_map(|(k, v)| {
                     if key == k.as_ref() {
-                        match Value::String(v).decode_multiple(decode.as_ref()) {
+                        match Value::String(v).decode_multiple(ops.as_ref()) {
                             Ok(v) => Ok(v),
                             Err(e) => {
                                 warn!("Error decoding query_string {:#?}", e);
@@ -62,12 +62,12 @@ fn parse_location<'a>(
                 })
             })
         }
-        Location::Header { keys, decode } => keys
+        Location::Header { keys, ops } => keys
             .iter()
             .find_map(|key| rh.get(key))
             .map(std::borrow::Cow::from)
             .map(|v| {
-                match Value::String(v).decode_multiple(decode.as_ref()) {
+                match Value::String(v).decode_multiple(ops.as_ref()) {
                     Ok(v) => Ok(v),
                     Err(e) => {
                         warn!("Error decoding header {:#?}", e);
@@ -81,8 +81,8 @@ fn parse_location<'a>(
         Location::Property {
             path,
             format,
-            lookup,
-            decode,
+            keys,
+            ops,
         } => {
             let path = path.iter().map(|ps| ps.as_str()).collect::<Vec<_>>();
             let path_s = path.join("/");
@@ -91,10 +91,10 @@ fn parse_location<'a>(
                 let b = property.as_slice();
                 let ss = b.iter().map(|&b| b).collect::<Vec<_>>();
 
-                match Value::Bytes(std::borrow::Cow::from(ss)).decode_multiple(decode.as_ref()) {
+                match Value::Bytes(std::borrow::Cow::from(ss)).decode_multiple(ops.as_ref()) {
                     Ok(v) => Ok(v),
                     Err(e) => {
-                        warn!("Error decoding property for {}", path_s);
+                        info!("cannot decode property for {}: {:#?}", path_s, e);
                         Err(e)
                     }
                 }

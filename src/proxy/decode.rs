@@ -3,7 +3,7 @@ use prost::Message;
 use std::borrow::Cow;
 use thiserror::Error;
 
-use crate::configuration::Decode;
+use crate::configuration::{Decode, Operation};
 use crate::util::pairs::Pairs;
 
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -72,10 +72,8 @@ impl<'a> Value<'a> {
         }
     }
 
-    pub fn decode(self, decode: Option<Decode>) -> Result<Value<'a>, ValueError<'a>> {
-        if let None = decode {
-            return Ok(self);
-        }
+    fn decode(self, decode: Decode) -> Result<Value<'a>, ValueError<'a>> {
+        // convert to bytes - decode always operates on string or bytes values, so this should work in a well formed pipeline of ops
         let bytes = match self.as_bytes() {
             Some(bytes) => bytes,
             None => return Err(ValueError::Type(self)),
@@ -87,8 +85,8 @@ impl<'a> Value<'a> {
             .collect::<Vec<_>>()
             .join(", ");
         log::debug!("Decoding {} bytes: [{}]", bytes.len(), hex);
-        let decode = decode.unwrap();
-        let value = match decode {
+
+        let res = match decode {
             Decode::Base64Decode => Value::Bytes(Cow::from(
                 base64::decode_config(bytes, base64::STANDARD)
                     .map_err(|e| ValueError::DecodeBase64(self, e))?,
@@ -130,17 +128,29 @@ impl<'a> Value<'a> {
             }
         };
 
-        Ok(value)
+        Ok(res)
+    }
+    pub fn perform_op(self, op: Option<Operation>) -> Result<Value<'a>, ValueError<'a>> {
+        let op = match op {
+            Some(op) => op,
+            None => return Ok(self),
+        };
+        let value = match op {
+            Operation::Decode(d) => self.decode(d),
+            Operation::Lookup { input, key, output } => unimplemented!("ei hoh"),
+        };
+
+        value
     }
 
     pub fn decode_multiple(
         self,
-        decode_vec: Option<&Vec<Decode>>,
+        ops: Option<&Vec<Operation>>,
     ) -> Result<Value<'a>, ValueError<'a>> {
-        match decode_vec {
+        match ops {
             Some(decode_vec) => decode_vec
                 .iter()
-                .try_fold(self, |val, &decode| val.decode(Some(decode))),
+                .try_fold(self, |val, &op| val.perform_op(Some(op))),
             _ => Ok(self),
         }
     }

@@ -71,7 +71,7 @@ pub(crate) enum ApplicationKind {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Parameter<K> {
-    locations: Vec<LocationInfo>,
+    locations: Vec<Location>,
     kind: ApplicationKind,
     keys: Vec<K>,
     #[serde(flatten)]
@@ -79,7 +79,7 @@ pub(crate) struct Parameter<K> {
 }
 
 impl<K> Parameter<K> {
-    pub fn locations(&self) -> &Vec<LocationInfo> {
+    pub fn locations(&self) -> &Vec<Location> {
         self.locations.as_ref()
     }
 
@@ -554,55 +554,48 @@ mod test {
                     kind: ApplicationKind::OIDC,
                     keys: vec!["azp".into(), "aud".into(), "x-jwt-payload".into()],
                     locations: vec![
-                        LocationInfo {
-                            location: Location::Header {
-                                keys: vec!["abc".into()],
-                                decode: None,
-                            },
-                            path: None,
-                            value_dnf: ValueDnF {
-                                decode: Some(vec![Decode::Base64Decode, Decode::JsonValue]),
-                                format: Some(Format::String),
-                            },
+                        Location::Header {
+                            keys: vec!["abc".into()],
+                            ops: Some(vec![
+                                Operation::Decode(Decode::Base64URLDecode),
+                                Operation::Decode(Decode::JsonValue),
+                            ]),
                         },
-                        LocationInfo {
-                            location: Location::Property {
-                                path: vec![
-                                    "metadata".into(),
-                                    "filter_metadata".into(),
-                                    "envoy.filters.http.jwt_authn".into(),
-                                ],
-                                format: Format::Pairs,
-                                lookup: Some(vec![("verified_jwt".into(), Format::String)]),
-                                decode: None,
-                            },
-                            path: Some(vec![
+                        Location::Property {
+                            path: vec![
                                 "metadata".into(),
                                 "filter_metadata".into(),
                                 "envoy.filters.http.jwt_authn".into(),
-                                "verified_jwt".into(),
-                            ]),
-                            value_dnf: ValueDnF {
-                                decode: Some(vec![Decode::ProtobufValue]),
-                                format: None,
-                            },
+                            ],
+                            format: Format::Pairs,
+                            ops: Some(vec![Operation::Lookup {
+                                input: Format::Pairs,
+                                key: "verified_jwt".into(),
+                                output: Format::Pairs,
+                            }]),
+                            keys: vec!["azp".into(), "aud".into()],
                         },
-                        LocationInfo {
-                            location: Location::Property {
-                                path: vec!["metadata".into()],
-                                format: Format::ProtobufStruct,
-                                lookup: Some(vec![
-                                    ("filter_metadata".into(), Format::Pairs),
-                                    ("envoy.filters.http.jwt_authn".into(), Format::Pairs),
-                                    ("verified_jwt".into(), Format::String),
-                                ]),
-                                decode: None,
-                            },
-                            path: None,
-                            value_dnf: ValueDnF {
-                                decode: Some(vec![Decode::ProtobufValue]),
-                                format: None,
-                            },
+                        Location::Property {
+                            path: vec!["metadata".into()],
+                            format: Format::ProtobufStruct,
+                            ops: Some(vec![
+                                Operation::Lookup {
+                                    input: Format::ProtobufStruct,
+                                    output: Format::ProtobufStruct,
+                                    key: "filter_metadata".into(),
+                                },
+                                Operation::Lookup {
+                                    input: Format::ProtobufStruct,
+                                    output: Format::ProtobufStruct,
+                                    key: "envoy.filters.http.jwt_authn".into(),
+                                },
+                                Operation::Lookup {
+                                    input: Format::ProtobufStruct,
+                                    output: Format::ProtobufStruct,
+                                    key: "verified_jwt".into(),
+                                },
+                            ]),
+                            keys: vec!["azp".into(), "aud".into()],
                         },
                     ],
                 }],
