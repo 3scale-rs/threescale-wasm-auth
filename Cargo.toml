@@ -21,3 +21,6 @@ prost-types = "^0.7"
 [lib]
 # rlib included to be able to use #[test] without compiler and linker issues
 crate-type = ["cdylib", "rlib"]
+
+[build-dependencies]
+rustc_version = "^0.3"
