@@ -1,18 +1,9 @@
-//use protobuf::Message;
-use prost::Message;
+use crate::util::pairs::Pairs;
 use std::borrow::Cow;
 use thiserror::Error;
 
 use crate::configuration::{Decode, Operation};
-use crate::util::pairs::Pairs;
-
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Metadata {
-    /// Key is the reverse DNS filter name, e.g. com.acme.widget. The envoy.*
-    /// namespace is reserved for Envoy's built-in filters.
-    #[prost(map = "string, message", tag = "1")]
-    pub filter_metadata: ::std::collections::HashMap<std::string::String, ::prost_types::Struct>,
-}
+use crate::proxy::metadata::Metadata;
 
 #[derive(Debug, Error)]
 pub(crate) enum ValueError<'a> {
@@ -113,7 +104,7 @@ impl<'a> Value<'a> {
                 //    cis.read_message::<protobuf::well_known_types::Struct>()
                 //};
                 //let proto = <prost_types::Struct as prost::Message>::decode(bytes);
-                let proto = Metadata::decode(bytes);
+                let proto = <Metadata as ::prost::Message>::decode(bytes);
 
                 log::warn!("protobuf parsing result: {:#?}", proto);
                 match proto {

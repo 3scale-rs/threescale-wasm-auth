@@ -1,11 +1,10 @@
 use std::vec;
 
-use super::decode::Value;
 use super::request_headers::RequestHeaders;
+use super::value::Value;
 use super::HttpAuthThreescale;
 use crate::configuration::{ApplicationKind, Decode, Format, Location};
 use log::{debug, info, warn};
-use protobuf::{well_known_types, Message};
 use proxy_wasm::traits::Context;
 use thiserror::Error;
 use threescalers::{

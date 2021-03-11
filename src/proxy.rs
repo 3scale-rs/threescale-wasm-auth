@@ -1,6 +1,7 @@
 mod authrep;
-mod decode;
+mod metadata;
 mod request_headers;
+mod value;
 
 use log::{debug, error, info, warn};
 use proxy_wasm::traits::*;
