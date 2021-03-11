@@ -72,19 +72,31 @@ impl<'a> Value<'a> {
         }
     }
 
-    fn decode(self, decode: Decode) -> Result<Value<'a>, ValueError<'a>> {
+    fn decode(self, decode: &Decode) -> Result<Value<'a>, ValueError<'a>> {
         // convert to bytes - decode always operates on string or bytes values, so this should work in a well formed pipeline of ops
         let bytes = match self.as_bytes() {
             Some(bytes) => bytes,
             None => return Err(ValueError::Type(self)),
         };
 
+        let s = String::from_utf8_lossy(bytes);
         let hex = bytes
-            .iter()
-            .map(|c| format!("0x{:02x}", *c))
-            .collect::<Vec<_>>()
-            .join(", ");
-        log::debug!("Decoding {} bytes: [{}]", bytes.len(), hex);
+            .chunks(8)
+            .map(|c| {
+                c.iter()
+                    .map(|c| format!("0x{:02x}", *c))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .enumerate()
+            .map(|(n, f)| (f, &s[n * 8..(n + 1) * 8]))
+            .map(|(f, s)| format!("{} | {}", f, s));
+
+        log::debug!("Decoding {} bytes: [", bytes.len());
+        for s in hex {
+            log::debug!("{}", s);
+        }
+        log::debug!("]");
 
         let res = match decode {
             Decode::Base64Decode => Value::Bytes(Cow::from(
@@ -130,14 +142,18 @@ impl<'a> Value<'a> {
 
         Ok(res)
     }
-    pub fn perform_op(self, op: Option<Operation>) -> Result<Value<'a>, ValueError<'a>> {
+    pub fn perform_op(self, op: Option<&Operation>) -> Result<Value<'a>, ValueError<'a>> {
         let op = match op {
             Some(op) => op,
             None => return Ok(self),
         };
         let value = match op {
             Operation::Decode(d) => self.decode(d),
-            Operation::Lookup { input, key, output } => unimplemented!("ei hoh"),
+            Operation::Lookup {
+                input,
+                kind,
+                output,
+            } => unimplemented!("ei hoh"),
         };
 
         value
@@ -150,7 +166,7 @@ impl<'a> Value<'a> {
         match ops {
             Some(decode_vec) => decode_vec
                 .iter()
-                .try_fold(self, |val, &op| val.perform_op(Some(op))),
+                .try_fold(self, |val, op| val.perform_op(Some(op))),
             _ => Ok(self),
         }
     }

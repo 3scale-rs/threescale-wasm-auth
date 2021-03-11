@@ -74,8 +74,8 @@ impl Pairs {
                 let elements = b.len() / core::mem::size_of::<T>();
                 let mut aligned_vec = Vec::<T>::with_capacity(elements);
 
-                #[cfg_attr(not(has_unsafe_op_in_unsafe_fn), allow(unused_unsafe))]
                 // copy slice over to the newly allocated buffer
+                #[cfg_attr(not(has_unsafe_op_in_unsafe_fn), allow(unused_unsafe))]
                 unsafe {
                     core::ptr::copy_nonoverlapping(
                         bptr,

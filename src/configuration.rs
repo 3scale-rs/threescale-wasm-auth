@@ -466,16 +466,22 @@ mod test {
                     "kind": "user_key",
                     "keys": ["x-api-key"],
                     "locations": [
-                      "header",
-                      "query_string"
+                      "header": {
+                          "keys": ["x-api-key"]
+                      },
+                      "query_string": {
+                          "keys": ["x-api-key"]
+                      }
                     ]
                   },
                   {
                     "kind": "oidc",
                     "keys": ["aud", "azp"],
                     "locations": [
-                        {
-                            "location": { "property": ["one", "two"] }
+                        "property": {
+                            "path": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn"],
+                            "format": "string",
+                            "keys": ["azp", "aud"]
                         }
                     ]
                   }
@@ -568,11 +574,19 @@ mod test {
                                 "envoy.filters.http.jwt_authn".into(),
                             ],
                             format: Format::Pairs,
-                            ops: Some(vec![Operation::Lookup {
-                                input: Format::Pairs,
-                                key: "verified_jwt".into(),
-                                output: Format::Pairs,
-                            }]),
+                            ops: Some(vec![
+                                Operation::Lookup {
+                                    input: Format::Pairs,
+                                    kind: LookupType::Key("verified_jwt".into()),
+                                    output: Format::Pairs,
+                                },
+                                // these two together don't make sense in this case, but this is a demo
+                                Operation::Lookup {
+                                    input: Format::Pairs,
+                                    kind: LookupType::Position(0),
+                                    output: Format::Pairs,
+                                },
+                            ]),
                             keys: vec!["azp".into(), "aud".into()],
                         },
                         Location::Property {
@@ -582,17 +596,17 @@ mod test {
                                 Operation::Lookup {
                                     input: Format::ProtobufStruct,
                                     output: Format::ProtobufStruct,
-                                    key: "filter_metadata".into(),
+                                    kind: LookupType::Key("filter_metadata".into()),
                                 },
                                 Operation::Lookup {
                                     input: Format::ProtobufStruct,
                                     output: Format::ProtobufStruct,
-                                    key: "envoy.filters.http.jwt_authn".into(),
+                                    kind: LookupType::Key("envoy.filters.http.jwt_authn".into()),
                                 },
                                 Operation::Lookup {
                                     input: Format::ProtobufStruct,
                                     output: Format::ProtobufStruct,
-                                    key: "verified_jwt".into(),
+                                    kind: LookupType::Position(0),
                                 },
                             ]),
                             keys: vec!["azp".into(), "aud".into()],

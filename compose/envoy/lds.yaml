@@ -110,10 +110,11 @@ resources:
                                     "keys": ["x-api-key"],
                                     "locations": [
                                       {
-                                        "location": "header"
+                                        "header": {
+                                        }
                                       },
                                       {
-                                        "location": "query_string"
+                                        "query_string"
                                       }
                                     ]
                                   },
@@ -122,9 +123,17 @@ resources:
                                     "keys": ["aud", "azp"],
                                     "locations": [
                                       {
-                                        "location": "header",
-                                        "path": ["x-jwt-payload"],
-                                        "decode": ["base64dec", "json"]
+                                        "header": {
+                                          "keys": ["x-jwt-payload"],
+                                          "ops": [
+                                            {
+                                              "decode": "base64dec"
+                                            },
+                                            {
+                                              "decode": "json"
+                                            }
+                                          ]
+                                        },
                                       }
                                     ]
                                   },
@@ -133,9 +142,10 @@ resources:
                                     "keys": ["aud", "azp"],
                                     "locations": [
                                       {
-                                        "location": "property",
-                                        "path": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn", "verified_jwt"],
-                                        "decode": ["protobuf"]
+                                        "property": {
+                                          "path": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn", "verified_jwt"],
+                                          "decode": ["protobuf"]
+                                        }
                                       }
                                     ]
                                   }

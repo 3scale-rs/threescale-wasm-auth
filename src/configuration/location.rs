@@ -2,11 +2,19 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub(crate) enum LookupType {
+    Key(String),
+    Position(usize),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum Operation {
     Decode(Decode),
     Lookup {
         input: Format,
-        key: String,
+        #[serde(flatten)]
+        kind: LookupType,
         output: Format,
     },
 }
