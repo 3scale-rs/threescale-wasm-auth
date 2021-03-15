@@ -10,6 +10,8 @@ pub(crate) enum LookupType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Operation {
+    Or(Vec<Operation>),
+    And(Vec<Operation>),
     Decode(Decode),
     Lookup {
         input: Format,
@@ -55,6 +57,7 @@ pub(crate) enum Decode {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Format {
     String,
+    Array, // just a Vec
     Base64String,
     Json,
     ProtobufStruct,

@@ -70,15 +70,15 @@ pub(crate) enum ApplicationKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub(crate) struct Parameter<K> {
+pub(crate) struct Parameter {
     locations: Vec<Location>,
     kind: ApplicationKind,
-    keys: Vec<K>,
+    //keys: Vec<K>,
     #[serde(flatten)]
     other: HashMap<String, serde_json::Value>,
 }
 
-impl<K> Parameter<K> {
+impl Parameter {
     pub fn locations(&self) -> &Vec<Location> {
         self.locations.as_ref()
     }
@@ -87,9 +87,9 @@ impl<K> Parameter<K> {
         self.kind
     }
 
-    pub fn keys(&self) -> &Vec<K> {
-        self.keys.as_ref()
-    }
+    //pub fn keys(&self) -> &Vec<K> {
+    //    self.keys.as_ref()
+    //}
 
     pub fn other(&self) -> &HashMap<String, serde_json::Value> {
         &self.other
@@ -101,7 +101,7 @@ pub(crate) struct Service {
     id: String,
     token: String,
     authorities: Vec<String>,
-    credentials: Vec<Parameter<String>>,
+    credentials: Vec<Parameter>,
     mapping_rules: Vec<MappingRule>,
     valid_apps: Option<Vec<String>>,
 }
@@ -119,7 +119,7 @@ impl Service {
         self.authorities.as_ref()
     }
 
-    pub fn credentials(&self) -> Result<&Vec<Parameter<String>>, MissingError> {
+    pub fn credentials(&self) -> Result<&Vec<Parameter>, MissingError> {
         if self.credentials.is_empty() {
             Err(MissingError::Credentials(self.id.to_owned()))
         } else {
@@ -464,7 +464,6 @@ mod test {
                 "credentials": [
                   {
                     "kind": "user_key",
-                    "keys": ["x-api-key"],
                     "locations": [
                       "header": {
                           "keys": ["x-api-key"]
@@ -476,7 +475,6 @@ mod test {
                   },
                   {
                     "kind": "oidc",
-                    "keys": ["aud", "azp"],
                     "locations": [
                         "property": {
                             "path": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn"],

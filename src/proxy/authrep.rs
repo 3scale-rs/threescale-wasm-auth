@@ -148,7 +148,7 @@ pub(crate) fn authrep<'a>(
         .iter()
         .find_map(|param| {
             let kind = param.kind();
-            let keys = param.keys();
+            let keys = ["sample", "keys"];
             param
                 .locations()
                 .iter()

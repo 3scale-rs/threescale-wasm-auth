@@ -107,44 +107,82 @@ resources:
                                 "credentials": [
                                   {
                                     "kind": "user_key",
-                                    "keys": ["x-api-key"],
                                     "locations": [
                                       {
                                         "header": {
+                                          "keys": ["x-api-key"]
                                         }
                                       },
                                       {
-                                        "query_string"
+                                        "query_string": {
+                                          "keys": ["x-api-key"]
+                                        }
                                       }
                                     ]
                                   },
                                   {
                                     "kind": "oidc",
-                                    "keys": ["aud", "azp"],
                                     "locations": [
                                       {
                                         "header": {
                                           "keys": ["x-jwt-payload"],
                                           "ops": [
                                             {
-                                              "decode": "base64dec"
+                                              "decode": "base64_urlsafe"
                                             },
                                             {
                                               "decode": "json"
+                                            },
+                                            {
+                                              "or": [
+                                                {
+                                                  "lookup": {
+                                                    "input": "json",
+                                                    "output": "string",
+                                                    "key": "azp"
+                                                  }
+                                                },
+                                                {
+                                                  "lookup": {
+                                                    "input": "json",
+                                                    "output": "string",
+                                                    "key": "aud"
+                                                  }
+                                                },
+                                                {
+                                                  "and": [
+                                                    {
+                                                      "lookup": {
+                                                        "input": "json",
+                                                        "output": "array",
+                                                        "key": "aud"
+                                                      }
+                                                    },
+                                                    {
+                                                      "lookup": {
+                                                        "input": "array",
+                                                        "output": "string",
+                                                        "position": 0
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              ]
                                             }
                                           ]
-                                        },
+                                        }
                                       }
                                     ]
                                   },
                                   {
                                     "kind": "oidc",
-                                    "keys": ["aud", "azp"],
                                     "locations": [
                                       {
                                         "property": {
                                           "path": ["metadata", "filter_metadata", "envoy.filters.http.jwt_authn", "verified_jwt"],
-                                          "decode": ["protobuf"]
+                                          "decode": ["protobuf"],
+                                          "format": "protobuf_struct",
+                                          "keys": ["azp", "aud"]
                                         }
                                       }
                                     ]

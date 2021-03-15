@@ -70,23 +70,28 @@ impl<'a> Value<'a> {
             None => return Err(ValueError::Type(self)),
         };
 
-        let s = String::from_utf8_lossy(bytes);
-        let hex = bytes
+        log::debug!("Decoding {} bytes: [", bytes.len());
+        bytes
             .chunks(8)
             .map(|c| {
                 c.iter()
-                    .map(|c| format!("0x{:02x}", *c))
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                    .map(|c| {
+                        (format!("0x{:02x}", *c), {
+                            let ch = char::from(*c);
+                            if ch.is_ascii_graphic() {
+                                ch
+                            } else {
+                                ' '
+                            }
+                        })
+                    })
+                    .unzip::<_, _, Vec<_>, String>()
             })
-            .enumerate()
-            .map(|(n, f)| (f, &s[n * 8..(n + 1) * 8]))
-            .map(|(f, s)| format!("{} | {}", f, s));
-
-        log::debug!("Decoding {} bytes: [", bytes.len());
-        for s in hex {
-            log::debug!("{}", s);
-        }
+            .map(|(b, s)| format!("{}  | {}", b.join(", "), s))
+            .for_each(
+                |line| //must call per-line, because there are line-decorators
+                log::debug!("{}", line),
+            );
         log::debug!("]");
 
         let res = match decode {
@@ -139,6 +144,8 @@ impl<'a> Value<'a> {
             None => return Ok(self),
         };
         let value = match op {
+            Operation::Or(ors) => unimplemented!(),
+            Operation::And(ands) => unimplemented!(),
             Operation::Decode(d) => self.decode(d),
             Operation::Lookup {
                 input,
