@@ -7,7 +7,7 @@ use crate::proxy::metadata::Metadata;
 
 #[derive(Debug, Error)]
 pub(crate) enum ValueError<'a> {
-    #[error("can only decode strings or bytes")]
+    #[error("type mismatch, can only decode strings or bytes")]
     Type(Value<'a>),
     #[error("error decoding base64")]
     DecodeBase64(Value<'a>, #[source] base64::DecodeError),
@@ -18,6 +18,8 @@ pub(crate) enum ValueError<'a> {
     DecodeJSON(Value<'a>, #[source] serde_json::Error),
     #[error("error decoding pairs")]
     DecodePairs(Value<'a>),
+    #[error("multiple errors in or condition")]
+    MultipleErrors(Vec<ValueError<'a>>),
 }
 
 #[derive(Debug, Clone)]
@@ -144,8 +146,19 @@ impl<'a> Value<'a> {
             None => return Ok(self),
         };
         let value = match op {
-            Operation::Or(ors) => unimplemented!(),
-            Operation::And(ands) => unimplemented!(),
+            Operation::Or(ors) => {
+                let mut errors: Vec<ValueError<'_>> = Vec::new();
+                ors.iter()
+                    .find_map(|op| match self.perform_op(Some(op)) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            errors.push(e);
+                            None
+                        }
+                    })
+                    .ok_or_else(|| ValueError::MultipleErrors(errors))
+            }
+            Operation::And(ands) => self.decode_multiple(Some(ands)),
             Operation::Decode(d) => self.decode(d),
             Operation::Lookup {
                 input,
