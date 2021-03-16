@@ -1,31 +1,33 @@
 use crate::util::pairs::Pairs;
-use std::borrow::Cow;
+use std::{borrow::Cow, error::Error};
 use thiserror::Error;
 
-use crate::configuration::{Decode, Operation};
+use crate::configuration::{Decode, Format, LookupType, Operation};
 use crate::proxy::metadata::Metadata;
 
 #[derive(Debug, Error)]
-pub(crate) enum ValueError<'a> {
+pub(crate) enum ValueError {
     #[error("type mismatch, can only decode strings or bytes")]
-    Type(Value<'a>),
+    Type,
     #[error("error decoding base64")]
-    DecodeBase64(Value<'a>, #[source] base64::DecodeError),
+    DecodeBase64(#[source] base64::DecodeError),
     #[error("error decoding protobuf")]
-    //DecodeProtobuf(Value<'a>, #[source] protobuf::ProtobufError),
-    DecodeProtobuf(Value<'a>, #[source] prost::DecodeError),
+    //DecodeProtobuf(#[source] protobuf::ProtobufError),
+    DecodeProtobuf(#[source] prost::DecodeError),
     #[error("error decoding JSON")]
-    DecodeJSON(Value<'a>, #[source] serde_json::Error),
+    DecodeJSON(#[source] serde_json::Error),
     #[error("error decoding pairs")]
-    DecodePairs(Value<'a>),
+    DecodePairs,
     #[error("multiple errors in or condition")]
-    MultipleErrors(Vec<ValueError<'a>>),
+    MultipleErrors(Vec<Self>),
+    #[error("can only look up objects or lists")]
+    LookupMismatch,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum Value<'a> {
-    Bytes(Cow<'a, [u8]>),
-    String(Cow<'a, str>),
+pub(crate) enum Value {
+    Bytes(Vec<u8>),
+    String(String),
     //ProtoValue(protobuf::well_known_types::Struct),
     //ProtoValue(prost_types::Struct),
     ProtoValue(Metadata),
@@ -39,11 +41,11 @@ pub(crate) enum Value<'a> {
     PairsValue(Pairs),
 }
 
-impl<'a> Value<'a> {
+impl Value {
     pub fn to_string(self) -> Option<String> {
         match self {
-            Value::String(s) => Some(s.into_owned()),
-            Value::Bytes(b) => String::from_utf8(b.into_owned()).ok(),
+            Value::String(s) => Some(s),
+            Value::Bytes(b) => String::from_utf8(b).ok(),
             Value::PairsValue(_p) => {
                 log::error!("need to implement Pairs -> String conversion");
                 unimplemented!("need to implement Pairs -> String conversion");
@@ -65,11 +67,11 @@ impl<'a> Value<'a> {
         }
     }
 
-    fn decode(self, decode: &Decode) -> Result<Value<'a>, ValueError<'a>> {
+    fn decode(&self, decode: &Decode) -> Result<Value, ValueError> {
         // convert to bytes - decode always operates on string or bytes values, so this should work in a well formed pipeline of ops
         let bytes = match self.as_bytes() {
             Some(bytes) => bytes,
-            None => return Err(ValueError::Type(self)),
+            None => return Err(ValueError::Type),
         };
 
         log::debug!("Decoding {} bytes: [", bytes.len());
@@ -97,14 +99,14 @@ impl<'a> Value<'a> {
         log::debug!("]");
 
         let res = match decode {
-            Decode::Base64Decode => Value::Bytes(Cow::from(
+            Decode::Base64Decode => Value::Bytes(
                 base64::decode_config(bytes, base64::STANDARD)
-                    .map_err(|e| ValueError::DecodeBase64(self, e))?,
-            )),
-            Decode::Base64URLDecode => Value::Bytes(Cow::from(
+                    .map_err(|e| ValueError::DecodeBase64(e))?,
+            ),
+            Decode::Base64URLDecode => Value::Bytes(
                 base64::decode_config(bytes, base64::URL_SAFE)
-                    .map_err(|e| ValueError::DecodeBase64(self, e))?,
-            )),
+                    .map_err(|e| ValueError::DecodeBase64(e))?,
+            ),
             Decode::ProtobufValue => {
                 //let proto = {
                 //    let mut cis = protobuf::CodedInputStream::from_bytes(bytes);
@@ -126,66 +128,123 @@ impl<'a> Value<'a> {
                         log::warn!("===> parsed ok!!!");
                         Value::ProtoValue(value)
                     }
-                    Err(e) => Err(ValueError::DecodeProtobuf(self, e))?,
+                    Err(e) => Err(ValueError::DecodeProtobuf(e))?,
                 }
             }
             Decode::JsonValue => {
                 let json = serde_json::from_slice::<serde_json::Value>(bytes);
                 match json {
                     Ok(value) => Value::JsonValue(value),
-                    Err(e) => Err(ValueError::DecodeJSON(self, e))?,
+                    Err(e) => Err(ValueError::DecodeJSON(e))?,
                 }
             }
         };
 
         Ok(res)
     }
-    pub fn perform_op(self, op: Option<&Operation>) -> Result<Value<'a>, ValueError<'a>> {
-        let op = match op {
-            Some(op) => op,
-            None => return Ok(self),
-        };
+
+    pub fn perform_op(&self, op: &Operation) -> Result<Value, ValueError> {
         let value = match op {
             Operation::Or(ors) => {
-                let mut errors: Vec<ValueError<'_>> = Vec::new();
+                let mut errors = Vec::new();
                 ors.iter()
-                    .find_map(|op| match self.perform_op(Some(op)) {
+                    .find_map(|op| match self.perform_op(op) {
                         Ok(v) => Some(v),
                         Err(e) => {
+                            //errors.push(format!("{}", e));
                             errors.push(e);
                             None
                         }
                     })
                     .ok_or_else(|| ValueError::MultipleErrors(errors))
             }
-            Operation::And(ands) => self.decode_multiple(Some(ands)),
+            Operation::And(ands) => self.decode_multiple(ands),
             Operation::Decode(d) => self.decode(d),
             Operation::Lookup {
                 input,
                 kind,
                 output,
-            } => unimplemented!("ei hoh"),
+            } => self.lookup(kind, input, output),
         };
 
         value
     }
 
-    pub fn decode_multiple(
-        self,
-        ops: Option<&Vec<Operation>>,
-    ) -> Result<Value<'a>, ValueError<'a>> {
-        match ops {
-            Some(decode_vec) => decode_vec
-                .iter()
-                .try_fold(self, |val, op| val.perform_op(Some(op))),
-            _ => Ok(self),
+    pub fn lookup(
+        &self,
+        kind: &LookupType,
+        input: &Format,
+        output: &Format,
+    ) -> Result<Value, ValueError> {
+        match self {
+            Value::Bytes(_) | Value::String(_) => Err(ValueError::LookupMismatch),
+            Value::JsonValue(json) => {
+                let val = match kind {
+                    LookupType::Position(pos) => {
+                        let val = json
+                            .as_array()
+                            .map(|ary| ary.get(*pos))
+                            .flatten()
+                            .ok_or_else(|| ValueError::LookupMismatch)?;
+                        val.clone()
+                    }
+                    LookupType::Key(key) => {
+                        let val = json
+                            .as_object()
+                            .map(|obj| obj.get(key))
+                            .flatten()
+                            .ok_or_else(|| ValueError::LookupMismatch)?;
+                        val.clone()
+                    }
+                };
+                //Ok(Value::JsonValue(val))
+                let out = match output {
+                    Format::String => Value::String(
+                        val.as_str()
+                            .ok_or_else(|| ValueError::LookupMismatch)?
+                            .into(),
+                    ),
+                    _ => Value::JsonValue(val),
+                    //    Format::Array => Value::Array(
+                    //        val.as_array()
+                    //            .ok_or_else(|| ValueError::LookupMismatch)?,
+                    //    ),
+                    //    Format::Struct => Value::JsonValue(
+                    //        val.as_object()
+                    //            .ok_or_else(|| ValueError::LookupMismatch)?,
+                    //    ),
+                };
+                Ok(out)
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn decode_multiple(&self, ops: &Vec<Operation>) -> Result<Value, ValueError> {
+        let op0 = &ops[0];
+        let initval = self.perform_op(op0)?;
+        let mut tmp = Some(initval);
+        for op in &ops[1..] {
+            if let Some(val) = tmp {
+                match val.perform_op(op) {
+                    Ok(newval) => {
+                        tmp = Some(newval);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
+        match tmp {
+            Some(v) => Ok(v),
+            _ => Err(ValueError::Type),
         }
     }
 
     fn as_bytes(&self) -> Option<&[u8]> {
         match self {
-            Value::Bytes(v) => v.as_ref().into(),
-            Value::String(v) => v.as_bytes().into(),
+            Value::Bytes(v) => Some(v.as_slice()),
+            Value::String(v) => Some(v.as_bytes()),
             _ => None,
         }
     }

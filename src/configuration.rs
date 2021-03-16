@@ -553,13 +553,12 @@ mod test {
                 token: "service_token".into(),
                 valid_apps: None,
                 authorities: vec!["0.0.0.0:8080".into(), "0.0.0.0:8443".into()],
-                credentials: vec![Parameter::<String> {
+                credentials: vec![Parameter {
                     other: HashMap::new(),
                     kind: ApplicationKind::OIDC,
-                    keys: vec!["azp".into(), "aud".into(), "x-jwt-payload".into()],
                     locations: vec![
                         Location::Header {
-                            keys: vec!["abc".into()],
+                            keys: vec!["azp".into(), "aud".into(), "x-jwt-payload".into()],
                             ops: Some(vec![
                                 Operation::Decode(Decode::Base64URLDecode),
                                 Operation::Decode(Decode::JsonValue),

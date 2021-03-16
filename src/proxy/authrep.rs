@@ -1,4 +1,4 @@
-use std::vec;
+use std::{borrow::Cow, vec};
 
 use super::request_headers::RequestHeaders;
 use super::value::Value;
@@ -32,13 +32,13 @@ enum UnimplementedError {
     CredentialsKind(ApplicationKind),
 }
 
-fn parse_location<'a>(
-    ctx: &'a HttpAuthThreescale,
+fn parse_location(
+    ctx: &HttpAuthThreescale,
     location: &Location,
     global_keys: &[&str],
-    rh: &'a RequestHeaders,
-    url: &'a url::Url,
-) -> Option<(Value<'a>, Option<Format>)> {
+    rh: &RequestHeaders,
+    url: &url::Url,
+) -> Option<(Value, Option<Format>)> {
     match location {
         Location::QueryString { keys, ops } => {
             let mut keys = keys.iter().map(std::ops::Deref::deref).collect::<Vec<_>>();
@@ -46,15 +46,19 @@ fn parse_location<'a>(
             keys.iter().find_map(|&key| {
                 url.query_pairs().find_map(|(k, v)| {
                     if key == k.as_ref() {
-                        match Value::String(v).decode_multiple(ops.as_ref()) {
-                            Ok(v) => Ok(v),
-                            Err(e) => {
-                                warn!("Error decoding query_string {:#?}", e);
-                                Err(e)
+                        let val = Value::String(v.into_owned());
+                        match ops.as_ref() {
+                            Some(ops) => match val.decode_multiple(ops) {
+                                Ok(v) => Ok(v),
+                                Err(e) => {
+                                    warn!("Error decoding query_string {:#?}", e);
+                                    Err(e)
+                                }
                             }
+                            .ok()
+                            .map(|v| (v, Some(Format::String))),
+                            _ => Some((val, Some(Format::String))),
                         }
-                        .ok()
-                        .map(|v| (v, Some(Format::String)))
                     } else {
                         None
                     }
@@ -66,15 +70,19 @@ fn parse_location<'a>(
             .find_map(|key| rh.get(key))
             .map(std::borrow::Cow::from)
             .map(|v| {
-                match Value::String(v).decode_multiple(ops.as_ref()) {
-                    Ok(v) => Ok(v),
-                    Err(e) => {
-                        warn!("Error decoding header {:#?}", e);
-                        Err(e)
+                let val = Value::String(v.into_owned());
+                match ops.as_ref() {
+                    Some(ops) => match val.decode_multiple(ops) {
+                        Ok(v) => Ok(v),
+                        Err(e) => {
+                            warn!("Error decoding header {:#?}", e);
+                            Err(e)
+                        }
                     }
+                    .ok()
+                    .map(|v| (v, Some(Format::String))),
+                    _ => Some((val, Some(Format::String))),
                 }
-                .ok()
-                .map(|v| (v, Some(Format::String)))
             })
             .flatten(),
         Location::Property {
@@ -88,17 +96,22 @@ fn parse_location<'a>(
             debug!("Looking up property path {}", path_s);
             if let Some(property) = ctx.get_property(path) {
                 let b = property.as_slice();
-                let ss = b.iter().map(|&b| b).collect::<Vec<_>>();
+                let bytes_vec = b.iter().map(|&b| b).collect::<Vec<_>>();
+                let val = Value::Bytes(bytes_vec);
 
-                match Value::Bytes(std::borrow::Cow::from(ss)).decode_multiple(ops.as_ref()) {
-                    Ok(v) => Ok(v),
-                    Err(e) => {
-                        info!("cannot decode property for {}: {:#?}", path_s, e);
-                        Err(e)
+                match ops.as_ref() {
+                    Some(ops) => match val.decode_multiple(ops) {
+                        Ok(v) => Ok(v),
+                        Err(e) => {
+                            info!("cannot decode property for {}: {:#?}", path_s, e);
+                            Err(e)
+                        }
                     }
+                    .ok()
+                    .map(|v| (v, Some(*format))),
+                    // TODO FIXME: we just trust the user provided "format"
+                    _ => Some((val, Some(*format))),
                 }
-                .ok()
-                .map(|v| (v, Some(*format)))
             } else {
                 debug!("Property path not found {}", path_s);
                 None
